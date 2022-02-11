@@ -9,9 +9,10 @@ contract FuseFlywheelCore is FlywheelCore {
     constructor(
         ERC20 _rewardToken, 
         IFlywheelRewards _flywheelRewards, 
-        IFlywheelController _flywheelController, 
-        IFlywheelBooster _flywheelBooster
-    ) FlywheelCore(_rewardToken, _flywheelRewards, _flywheelController, _flywheelBooster) {}
+        IFlywheelBooster _flywheelBooster,
+        address _owner,
+        Authority _authority
+    ) FlywheelCore(_rewardToken, _flywheelRewards, _flywheelBooster, _owner, _authority) {}
 
     function flywheelPreSupplierAction(ERC20 market, address supplier) external {
         accrue(market, supplier);  
