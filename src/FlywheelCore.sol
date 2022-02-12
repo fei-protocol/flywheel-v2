@@ -99,7 +99,7 @@ contract FlywheelCore is Auth {
 
         if (state.index == 0) return 0;
 
-        accrueMarket(market, state);
+        state = accrueMarket(market, state);
         return accrueUser(market, user, state);
     }
 
@@ -109,33 +109,38 @@ contract FlywheelCore is Auth {
 
         if (state.index == 0) return (0, 0);
 
-        accrueMarket(market, state);
+        state = accrueMarket(market, state);
         return (accrueUser(market, user, state), accrueUser(market, secondUser, state));
     }
 
     function claim(address owner) external {
         uint256 accrued = rewardsAccrued[owner];
-        rewardsAccrued[owner] = 0;
 
-        rewardToken.transfer(owner, accrued); 
+        if (accrued != 0) {
+            rewardsAccrued[owner] = 0;
 
-        emit ClaimRewards(owner, accrued);
+            rewardToken.transfer(owner, accrued); 
+
+            emit ClaimRewards(owner, accrued);
+        }
     }
 
     /// @notice accumulate global rewards on a market
-    function accrueMarket(ERC20 market, RewardsState memory state) private {
+    function accrueMarket(ERC20 market, RewardsState memory state) private returns(RewardsState memory rewardsState) {
         // calculate accrued rewards through module
         uint256 marketRewardsAccrued = flywheelRewards.getAccruedRewards(market, state.lastUpdatedTimestamp);
 
+        rewardsState = state;
         if (marketRewardsAccrued > 0) {
             // use the booster or token supply to calculate reward index denominator
             uint256 supplyTokens = applyBoosting ? flywheelBooster.boostedTotalSupply(market): market.totalSupply();
 
             // accumulate rewards per token onto the index, multiplied by fixed-point factor
-            marketState[market] = RewardsState({
+            rewardsState = RewardsState({
                 index: state.index + uint224(marketRewardsAccrued * ONE / supplyTokens),
                 lastUpdatedTimestamp: uint32(block.timestamp)
             });
+            marketState[market] = rewardsState;
         }
     }
 
@@ -165,7 +170,7 @@ contract FlywheelCore is Auth {
         rewardsAccrued[user] = supplierAccrued;
 
         emit AccrueRewards(market, user, supplierDelta, supplyIndex);
-        
+
         return supplierAccrued;
     }
 }
