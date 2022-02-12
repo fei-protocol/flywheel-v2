@@ -15,6 +15,7 @@
     "prettier-plugin-solidity": "^1.0.0-beta.13"
   },
   "scripts": {
-    "lint": "prettier --write src/**/*.sol"
+    "lint": "prettier --write src/**/*.sol",
+    "test:integration": "forge clean && forge test --fork-url https://eth-mainnet.alchemyapi.io/v2/$MAINNET_ALCHEMY_API_KEY --fork-block-number $FORK_BLOCK --match Integration"
   }
 }
