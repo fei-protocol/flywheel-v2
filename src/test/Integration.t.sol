@@ -61,18 +61,18 @@ contract FlywheelIntegrationTest is DSTestPlus {
 
         // seed rewards to flywheel
         rewardToken.mint(address(rewards), 100 ether);
-    }
-
-    function testIntegration() public {
 
         // Start reward distribution at 1 token per second
         rewards.setRewardsInfo(fTRIBE, FlywheelStaticRewards.RewardsInfo({rewardsPerSecond: 1 ether, rewardsEndTimestamp: 0}));
 
-        // store expected rewards per token (1 token per second over total supply)
-        uint256 rewardsPerToken = (1 ether * 1 ether) / fTRIBE.totalSupply();
-
         // advance 1 second
         hevm.warp(block.timestamp + 1);
+    }
+
+    function testIntegration() public {
+
+        // store expected rewards per token (1 token per second over total supply)
+        uint256 rewardsPerToken = (1 ether * 1 ether) / fTRIBE.totalSupply();
 
         // store expected user rewards (user balance times reward per second over 1 token)
         uint256 userRewards = rewardsPerToken * fTRIBE.balanceOf(user) / 1 ether;
