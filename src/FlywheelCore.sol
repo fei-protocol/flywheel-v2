@@ -113,6 +113,7 @@ contract FlywheelCore is Auth {
         return (accrueUser(market, user, state), accrueUser(market, secondUser, state));
     }
 
+    /// @notice claim rewards for a given owner
     function claim(address owner) external {
         uint256 accrued = rewardsAccrued[owner];
 
