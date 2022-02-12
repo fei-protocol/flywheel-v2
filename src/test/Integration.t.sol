@@ -115,4 +115,23 @@ contract FlywheelIntegrationTest is DSTestPlus {
         // the second reward stream should be more than 10x because of additional user mint
         require(userRewards2 > 10 * userRewards);
     }
+
+    // Gas benchmarks
+    function testPreSupplier() public {
+        flywheel.flywheelPreSupplierAction(fTRIBE, user);
+    }
+
+    function testPreTransfer() public {
+        flywheel.flywheelPreTransferAction(fTRIBE, user, 0xDB5Ac83c137321Da29a59a7592232bC4ed461730);
+    }
+
+    FuseFlywheelCore tribeRewardsDistributor = FuseFlywheelCore(0x73F16f0c0Cd1A078A54894974C5C054D8dC1A3d7);
+
+    function testPreSupplierOld() public {
+        tribeRewardsDistributor.flywheelPreSupplierAction(fTRIBE, user);
+    }
+
+    function testPreTransferOld() public {
+        tribeRewardsDistributor.flywheelPreTransferAction(fTRIBE, user, 0xDB5Ac83c137321Da29a59a7592232bC4ed461730);
+    }
 }

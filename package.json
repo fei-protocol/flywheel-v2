@@ -16,6 +16,6 @@
   },
   "scripts": {
     "lint": "prettier --write src/**/*.sol",
-    "test:integration": "forge clean && forge test --fork-url https://eth-mainnet.alchemyapi.io/v2/$MAINNET_ALCHEMY_API_KEY --fork-block-number $FORK_BLOCK --match Integration"
+    "test:integration": "forge clean && forge test --fork-url https://eth-mainnet.alchemyapi.io/v2/$MAINNET_ALCHEMY_API_KEY --fork-block-number $FORK_BLOCK"
   }
 }
