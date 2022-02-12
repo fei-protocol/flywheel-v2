@@ -65,6 +65,11 @@ contract FlywheelIntegrationTest is DSTestPlus {
         // Start reward distribution at 1 token per second
         rewards.setRewardsInfo(fTRIBE, FlywheelStaticRewards.RewardsInfo({rewardsPerSecond: 1 ether, rewardsEndTimestamp: 0}));
 
+        // prime the flywheel storage for accurate gas benchmarking later
+        rewardToken.mint(address(flywheel), 1);
+        flywheel.flywheelPreSupplierAction(fTRIBE, user);
+        flywheel.flywheelPreTransferAction(fTRIBE, user, 0xDB5Ac83c137321Da29a59a7592232bC4ed461730);
+
         // advance 1 second
         hevm.warp(block.timestamp + 1);
     }
