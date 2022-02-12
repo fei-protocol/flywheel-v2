@@ -4,6 +4,7 @@ pragma solidity 0.8.10;
 import {DSTestPlus} from "solmate/test/utils/DSTestPlus.sol";
 import {MockERC20} from "solmate/test/utils/mocks/MockERC20.sol";
 import {MockMarket} from "./mocks/MockMarket.sol";
+import {MockBooster} from "./mocks/MockBooster.sol";
 
 import "../FlywheelCore.sol";
 import {FlywheelDynamicRewards} from "../rewards/FlywheelDynamicRewards.sol";
@@ -204,5 +205,44 @@ contract FlywheelTest is DSTestPlus {
         require(flywheel.rewardsAccrued(user) == 0);
 
         flywheel.claim(user);
+    }
+
+    function testBoost() public {
+
+        MockBooster booster = new MockBooster();
+        booster.setBoost(user, 1 ether);
+
+        flywheel = new FlywheelCore(
+            rewardToken, 
+            FlywheelDynamicRewards(address(0)),
+            IFlywheelBooster(address(booster)),
+            address(this),
+            Authority(address(0))
+        );
+
+        rewards = new FlywheelDynamicRewards(rewardToken, address(flywheel));
+
+        flywheel.setFlywheelRewards(rewards);
+
+        market.mint(user, 1 ether);
+        market.mint(user2, 2 ether);
+
+        market.approve(rewardToken, address(rewards));
+
+        rewardToken.mint(address(market), 10 ether);
+
+        flywheel.addMarketForRewards(market);
+        
+        uint256 accrued = flywheel.accrue(market, user);
+
+        (uint224 index,) = flywheel.marketState(market);
+
+        require(index == flywheel.ONE() + 2.5 ether);
+        require(flywheel.userIndex(market, user) == index);
+        require(flywheel.rewardsAccrued(user) == 5 ether);
+        require(accrued == 5 ether);
+        require(flywheel.rewardsAccrued(user2) == 0 ether);
+
+        require(rewardToken.balanceOf(address(flywheel)) == 10 ether);
     }
 }
