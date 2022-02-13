@@ -6,6 +6,8 @@ import "./FlywheelCore.sol";
 
 contract FuseFlywheelCore is FlywheelCore {
 
+    bool public constant isRewardsDistributor = true;
+
     constructor(
         ERC20 _rewardToken, 
         IFlywheelRewards _flywheelRewards, 
