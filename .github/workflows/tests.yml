@@ -19,4 +19,4 @@ jobs:
           version: nightly
 
       - name: Run tests
-        run: forge test
+        run: forge test --no-match-contract Integration
