@@ -3,25 +3,20 @@ name: Tests
 on: [push, pull_request]
 
 jobs:
-  tests:
+  run-ci:
     runs-on: ubuntu-latest
-
     steps:
       - uses: actions/checkout@v2
-      - uses: actions/setup-node@v2
-      - uses: cachix/install-nix-action@v13
-      - uses: cachix/cachix-action@v10
         with:
-          name: dapp
+          submodules: recursive
+      - uses: actions/setup-node@v2
+      - name: Install dev dependencies
+        run: npm install
 
-      - name: Install dependencies
-        run: nix-shell --run 'make'
-
-      - name: Check gas snapshots
-        run: nix-shell --run 'dapp check-snapshot'
+      - name: Install Foundry
+        uses: onbjerg/foundry-toolchain@v1
+        with:
+          version: nightly
 
       - name: Run tests
-        run: nix-shell --run 'dapp test'
-        env:
-          # Only fuzz deeply if we're pushing to main or this is a PR to main:
-          DEEP_FUZZ: ${{ github.ref == 'refs/heads/main' || github.base_ref == 'main' }}
+        run: forge test
