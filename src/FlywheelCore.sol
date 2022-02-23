@@ -116,7 +116,7 @@ contract FlywheelCore is Auth {
     }
 
     /// @notice claim rewards for a given owner
-    function claim(address owner) external {
+    function claimRewards(address owner) external {
         uint256 accrued = rewardsAccrued[owner];
 
         if (accrued != 0) {

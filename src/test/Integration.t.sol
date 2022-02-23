@@ -90,7 +90,7 @@ contract FlywheelIntegrationTest is DSTestPlus {
         require(index == flywheel.ONE() + rewardsPerToken);
 
         // claim and check user balance
-        flywheel.claim(user);
+        flywheel.claimRewards(user);
         require(rewardToken.balanceOf(user) == userRewards);
 
         // mint more tokens by user and rerun test
@@ -112,7 +112,7 @@ contract FlywheelIntegrationTest is DSTestPlus {
 
         require(index2 == index + rewardsPerToken2);
 
-        flywheel.claim(user);
+        flywheel.claimRewards(user);
 
         // user balance should accumulate from both rewards
         require(rewardToken.balanceOf(user) == userRewards + userRewards2);
