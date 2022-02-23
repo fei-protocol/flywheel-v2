@@ -198,13 +198,13 @@ contract FlywheelTest is DSTestPlus {
 
     function testClaim() public {
         testAccrue();
-        flywheel.claim(user);
+        flywheel.claimRewards(user);
 
         require(rewardToken.balanceOf(address(flywheel)) == 7.5 ether);
         require(rewardToken.balanceOf(user) == 2.5 ether);
         require(flywheel.rewardsAccrued(user) == 0);
 
-        flywheel.claim(user);
+        flywheel.claimRewards(user);
     }
 
     function testBoost() public {
