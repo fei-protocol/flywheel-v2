@@ -57,4 +57,6 @@ The booster module is assumed to have correct accounting and state management.
 
 # Testing
 
-To test, run `FORK_BLOCK=14193630 npm run test:integration`. Requires having [foundry installed](https://github.com/gakonst/foundry#installation).
+To test:
+1. Set $MAINNET_ALCHEMY_API_KEY environment variable with an alchemy key
+2. run `FORK_BLOCK=14193630 npm run test:integration`. Requires having [foundry installed](https://github.com/gakonst/foundry#installation).
