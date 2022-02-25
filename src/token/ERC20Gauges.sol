@@ -7,8 +7,6 @@ import "solmate/tokens/ERC20.sol";
 import "solmate/utils/SafeCastLib.sol";
 import "../../lib/EnumerableSet.sol";
 
-// TODO: Custom errors
-
 /** 
  @title  An ERC20 with an embedded "Gauge" style vote with liquid weights
  @author Tribe DAO
@@ -34,9 +32,20 @@ abstract contract ERC20Gauges is ERC20, Auth {
     using EnumerableSet for EnumerableSet.AddressSet;
     using SafeCastLib for *;
 
+    /*///////////////////////////////////////////////////////////////
+                            CUSTOM ERRORS
+    //////////////////////////////////////////////////////////////*/
+
+    error InvalidGaugeError();
+
+    error SizeMismatchError();
+
+    error MaxGaugeError();
+
+    error OverWeightError();
 
     /*///////////////////////////////////////////////////////////////
-                            EVENTS
+                                EVENTS
     //////////////////////////////////////////////////////////////*/
 
     event IncrementGaugeWeight(address indexed user, address indexed gauge, uint256 weight);
@@ -126,10 +135,10 @@ abstract contract ERC20Gauges is ERC20, Auth {
      @return newUserWeight the new user weight
     */
     function incrementGauge(address gauge, uint256 weight) external returns(uint256 newUserWeight) {
-        require(_gauges.contains(gauge), "gauge not live");
+        if (!_gauges.contains(gauge)) revert InvalidGaugeError();
 
         newUserWeight = getUserWeight[msg.sender] + weight;
-        require(newUserWeight <= balanceOf[msg.sender], "overweight");
+        if (newUserWeight > balanceOf[msg.sender]) revert OverWeightError();
 
         // Update gauge state
         getUserWeight[msg.sender] = newUserWeight; 
@@ -148,7 +157,7 @@ abstract contract ERC20Gauges is ERC20, Auth {
     */
     function incrementGauges(address[] calldata gaugeList, uint256[] calldata weights) external returns(uint256 newUserWeight) {
         uint256 size = gaugeList.length;
-        require(weights.length == size, "size mismatch");
+        if (weights.length != size) revert SizeMismatchError();
 
         // store total in summary for batch update on user/global state
         uint256 weightsSum;
@@ -156,7 +165,7 @@ abstract contract ERC20Gauges is ERC20, Auth {
         // Update gauge specific state
         for (uint256 i = 0; i < size; i++) {
             address gauge = gaugeList[i];
-            require(_gauges.contains(gauge), "gauge not live");
+            if (!_gauges.contains(gauge)) revert InvalidGaugeError();
 
             uint256 weight = weights[i];
             weightsSum += weight;
@@ -168,7 +177,7 @@ abstract contract ERC20Gauges is ERC20, Auth {
 
         // Ensure under weight
         newUserWeight = getUserWeight[msg.sender] + weightsSum;
-        require(newUserWeight <= balanceOf[msg.sender], "overweight");
+        if (newUserWeight > balanceOf[msg.sender]) revert OverWeightError();
 
         // update global state
         getUserWeight[msg.sender] = newUserWeight; 
@@ -201,7 +210,7 @@ abstract contract ERC20Gauges is ERC20, Auth {
     */
     function decrementGauges(address[] calldata gaugeList, uint256[] calldata weights) external returns (uint256 newUserWeight) {
         uint256 size = gaugeList.length;
-        require(weights.length == size, "size mistmatch");
+        if (weights.length != size) revert SizeMismatchError();
 
         // store total in summary for batch update on user/global state
         uint256 weightsSum;
@@ -232,7 +241,7 @@ abstract contract ERC20Gauges is ERC20, Auth {
         uint256 totalFree;
         for (uint256 i = 0; i < size; i++) {
             address gauge = gaugeList[i];
-            require(_deprecatedGauges.contains(gauge));
+            if (!_deprecatedGauges.contains(gauge)) revert InvalidGaugeError();
 
             uint256 weight = getUserGaugeWeight[user][gauge];
             if (weight != 0) {
@@ -252,13 +261,13 @@ abstract contract ERC20Gauges is ERC20, Auth {
 
     /// @notice add a new gauge. Requires auth by `authority`.
     function addGauge(address gauge) external requiresAuth {
-        require(_gauges.length() < maxGauges); // strict inequality to accomodate new gauge
+        if (_gauges.length() >= maxGauges) revert MaxGaugeError();
         _addGauge(gauge);
     }
 
     function _addGauge(address gauge) internal {
         // add and fail loud if already present
-        require(_gauges.add(gauge));
+        if (!_gauges.add(gauge)) revert InvalidGaugeError();
         _deprecatedGauges.remove(gauge); // silently remove gauge from deprecated if present
 
         // Check if some previous weight exists and re-add to total. Gauge and user weights are preserved.
@@ -275,7 +284,7 @@ abstract contract ERC20Gauges is ERC20, Auth {
 
     function _removeGauge(address gauge) internal {
         // remove and fail loud if not present
-        require(_gauges.remove(gauge)); 
+        if (!_gauges.remove(gauge)) revert InvalidGaugeError(); 
         _deprecatedGauges.add(gauge); // add gauge to deprecated. Must not be present if previously in live set.
 
         // Remove weight from total but keep the gauge and user weights in storage in case gauge is re-added.
@@ -292,7 +301,8 @@ abstract contract ERC20Gauges is ERC20, Auth {
 
     /// @notice set the new max gauges. Requires auth by `authority`.
     function setMaxGauges(uint256 newMax) external requiresAuth {
-        require(newMax >= _gauges.length());
+        if (newMax < _gauges.length()) revert MaxGaugeError();
+
         uint256 oldMax = maxGauges;
         maxGauges = newMax;
 
