@@ -6,7 +6,7 @@ import {MockERC20, ERC20} from "solmate/test/utils/mocks/MockERC20.sol";
 import {MockMarket} from "./mocks/MockMarket.sol";
 import {MockBooster} from "./mocks/MockBooster.sol";
 
-import "../FuseFlywheelCore.sol";
+import "../fuse-compatibility/FuseFlywheelCore.sol";
 import {FlywheelStaticRewards} from "../rewards/FlywheelStaticRewards.sol";
 
 interface Comptroller {
@@ -90,7 +90,7 @@ contract FlywheelIntegrationTest is DSTestPlus {
         require(index == flywheel.ONE() + rewardsPerToken);
 
         // claim and check user balance
-        flywheel.claim(user);
+        flywheel.claimRewards(user);
         require(rewardToken.balanceOf(user) == userRewards);
 
         // mint more tokens by user and rerun test
@@ -112,7 +112,7 @@ contract FlywheelIntegrationTest is DSTestPlus {
 
         require(index2 == index + rewardsPerToken2);
 
-        flywheel.claim(user);
+        flywheel.claimRewards(user);
 
         // user balance should accumulate from both rewards
         require(rewardToken.balanceOf(user) == userRewards + userRewards2);
