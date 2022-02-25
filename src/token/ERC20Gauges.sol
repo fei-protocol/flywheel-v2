@@ -30,7 +30,7 @@ import "../../lib/EnumerableSet.sol";
          Weight state is preserved on the gauge and user level even when a gauge is removed, in case it is re-added. 
          This maintains state efficiently, and global accounting is managed only on the `totalWeight`
 */
-contract ERC20Gauges is ERC20, Auth {
+abstract contract ERC20Gauges is ERC20, Auth {
     using EnumerableSet for EnumerableSet.AddressSet;
     using SafeCastLib for *;
 
@@ -55,14 +55,6 @@ contract ERC20Gauges is ERC20, Auth {
 
     // Store deprecated gauges in case a user needs to free dead weight
     EnumerableSet.AddressSet internal _deprecatedGauges;
-
-    constructor(
-        string memory _name,
-        string memory _symbol,
-        uint8 _decimals,
-        address _owner,
-        Authority _authority
-    ) ERC20(_name, _symbol, _decimals) Auth(_owner, _authority) {}
 
     /*///////////////////////////////////////////////////////////////
                               VIEW HELPERS
