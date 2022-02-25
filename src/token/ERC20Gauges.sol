@@ -65,6 +65,11 @@ abstract contract ERC20Gauges is ERC20, Auth {
         return _gauges.values();
     }
 
+    /// @notice returns the set of previously live but now deprecated gauges
+    function deprecatedGauges() external view returns(address[] memory) {
+        return _deprecatedGauges.values();
+    }
+
     /// @notice returns the number of live gauges
     function numGauges() external view returns(uint256) {
         return _gauges.length();
@@ -221,7 +226,7 @@ abstract contract ERC20Gauges is ERC20, Auth {
 
     /// @notice add a new gauge. Requires auth by `authority`.
     function addGauge(address gauge) external requiresAuth {
-        require(_gauges.length() <= maxGauges);
+        require(_gauges.length() < maxGauges); // strict inequality to accomodate new gauge
         _addGauge(gauge);
     }
 
@@ -276,7 +281,7 @@ abstract contract ERC20Gauges is ERC20, Auth {
     }
 
     function transfer(address to, uint256 amount) public virtual override returns(bool) {
-        _decrementUntilFree(to, amount);
+        _decrementUntilFree(msg.sender, amount);
         return super.transfer(to, amount);
     }
 
