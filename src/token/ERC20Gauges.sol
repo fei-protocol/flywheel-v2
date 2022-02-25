@@ -7,7 +7,7 @@ import "solmate/tokens/ERC20.sol";
 import "solmate/utils/SafeCastLib.sol";
 import "../../lib/EnumerableSet.sol";
 
-// TODO: Custom errors and events
+// TODO: Custom errors
 
 /** 
  @title  An ERC20 with an embedded "Gauge" style vote with liquid weights
@@ -33,6 +33,25 @@ import "../../lib/EnumerableSet.sol";
 abstract contract ERC20Gauges is ERC20, Auth {
     using EnumerableSet for EnumerableSet.AddressSet;
     using SafeCastLib for *;
+
+
+    /*///////////////////////////////////////////////////////////////
+                            EVENTS
+    //////////////////////////////////////////////////////////////*/
+
+    event IncrementGaugeWeight(address indexed user, address indexed gauge, uint256 weight);
+    
+    event DecrementGaugeWeight(address indexed user, address indexed gauge, uint256 weight);
+    
+    event AddGauge(address indexed gauge);
+    
+    event RemoveGauge(address indexed gauge);
+
+    event MaxGaugesUpdate(uint256 oldMaxGauges, uint256 newMaxGauges);
+
+    /*///////////////////////////////////////////////////////////////
+                        GAUGE STATE
+    //////////////////////////////////////////////////////////////*/
 
     /// @notice the maximum amount of live gauges at a given time
     uint256 public maxGauges;
@@ -117,6 +136,8 @@ abstract contract ERC20Gauges is ERC20, Auth {
         getUserGaugeWeight[msg.sender][gauge] += weight;
         getGaugeWeight[gauge] += weight;
         totalWeight += weight;
+
+        emit IncrementGaugeWeight(msg.sender, gauge, weight);
     } 
 
     /** 
@@ -142,6 +163,7 @@ abstract contract ERC20Gauges is ERC20, Auth {
 
             getUserGaugeWeight[msg.sender][gauge] += weight;
             getGaugeWeight[gauge] += weight;
+            emit IncrementGaugeWeight(msg.sender, gauge, weight);
         }
 
         // Ensure under weight
@@ -167,6 +189,8 @@ abstract contract ERC20Gauges is ERC20, Auth {
         getUserGaugeWeight[msg.sender][gauge] -= weight;
         getGaugeWeight[gauge] -= weight;
         totalWeight -= weight;
+
+        emit DecrementGaugeWeight(msg.sender, gauge, weight);
     }
 
     /** 
@@ -191,6 +215,7 @@ abstract contract ERC20Gauges is ERC20, Auth {
 
             getUserGaugeWeight[msg.sender][gauge] -= weight;
             getGaugeWeight[gauge] -= weight;
+            emit DecrementGaugeWeight(msg.sender, gauge, weight);
         }
 
         // update global state
@@ -215,6 +240,7 @@ abstract contract ERC20Gauges is ERC20, Auth {
                 getGaugeWeight[gauge] -= weight;
 
                 totalFree += weight;
+                emit DecrementGaugeWeight(user, gauge, weight);
             }
         }
         getUserWeight[user] -= totalFree;
@@ -238,6 +264,8 @@ abstract contract ERC20Gauges is ERC20, Auth {
         // Check if some previous weight exists and re-add to total. Gauge and user weights are preserved.
         uint256 weight = getGaugeWeight[gauge];
         if (weight > 0) totalWeight += weight;
+
+        emit AddGauge(gauge);
     }
 
     /// @notice remove a new gauge. Requires auth by `authority`.
@@ -252,6 +280,8 @@ abstract contract ERC20Gauges is ERC20, Auth {
 
         // Remove weight from total but keep the gauge and user weights in storage in case gauge is re-added.
         totalWeight -= getGaugeWeight[gauge];
+
+        emit RemoveGauge(gauge);
     }
 
     /// @notice replace a gauge. Requires auth by `authority`.
@@ -263,7 +293,10 @@ abstract contract ERC20Gauges is ERC20, Auth {
     /// @notice set the new max gauges. Requires auth by `authority`.
     function setMaxGauges(uint256 newMax) external requiresAuth {
         require(newMax >= _gauges.length());
+        uint256 oldMax = maxGauges;
         maxGauges = newMax;
+
+        emit MaxGaugesUpdate(oldMax, newMax);
     }
 
     /*///////////////////////////////////////////////////////////////
@@ -313,6 +346,7 @@ abstract contract ERC20Gauges is ERC20, Auth {
                 totalFreed += userGaugeWeight;
                 getUserGaugeWeight[user][gauge] = 0;
                 getGaugeWeight[gauge] -= userGaugeWeight;
+                emit DecrementGaugeWeight(user, gauge, userGaugeWeight);
             }
         }
 
