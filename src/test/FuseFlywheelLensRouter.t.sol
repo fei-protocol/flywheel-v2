@@ -19,7 +19,7 @@ abstract contract CErc20 is ERC20 {
     function mint(uint256 amount) external virtual returns(uint);
 }
 
-contract FlywheelLensRouterTest is DSTestPlus {
+contract FlywheelLensRouterIntegration is DSTestPlus {
     FlywheelCore[] flywheels;
     FuseFlywheelLensRouter router;
 
