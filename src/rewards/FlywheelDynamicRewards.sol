@@ -30,6 +30,7 @@ contract FlywheelDynamicRewards is IFlywheelRewards {
      */
     function getAccruedRewards(ERC20 market, uint32) external override returns (uint256 amount) {
         require(msg.sender == flywheel, "!flywheel");
-        rewardToken.safeTransferFrom(address(market), flywheel, amount = rewardToken.balanceOf(address(market)));
+        amount = rewardToken.balanceOf(address(market));
+        if (amount > 0) rewardToken.safeTransferFrom(address(market), flywheel, amount);
     }
 }
