@@ -78,6 +78,7 @@ contract FlywheelCore is Auth {
 
     /// @notice initialize a new market
     function addMarketForRewards(ERC20 market) external requiresAuth {
+        require(marketState[market].index == 0, "market");
         marketState[market] = RewardsState({
             index: ONE,
             lastUpdatedTimestamp: uint32(block.timestamp)
