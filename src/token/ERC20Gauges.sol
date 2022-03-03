@@ -135,19 +135,29 @@ abstract contract ERC20Gauges is ERC20, Auth {
      @return newUserWeight the new user weight
     */
     function incrementGauge(address gauge, uint256 weight) external returns(uint256 newUserWeight) {
+        _incrementGaugeWeight(msg.sender, gauge, weight);
+        return _incrementUserAndGlobalWeights(msg.sender, weight);
+    } 
+
+    function _incrementGaugeWeight(address user, address gauge, uint256 weight) internal {
         if (!_gauges.contains(gauge)) revert InvalidGaugeError();
 
-        newUserWeight = getUserWeight[msg.sender] + weight;
-        if (newUserWeight > balanceOf[msg.sender]) revert OverWeightError();
+        getUserGaugeWeight[user][gauge] += weight;
+        getGaugeWeight[gauge] += weight;
+
+        emit IncrementGaugeWeight(user, gauge, weight);
+    }
+
+    function _incrementUserAndGlobalWeights(address user, uint256 weight) internal returns(uint256 newUserWeight) {
+        newUserWeight = getUserWeight[user] + weight;
+        // Ensure under weight
+        if (newUserWeight > balanceOf[user]) revert OverWeightError();
 
         // Update gauge state
-        getUserWeight[msg.sender] = newUserWeight; 
-        getUserGaugeWeight[msg.sender][gauge] += weight;
-        getGaugeWeight[gauge] += weight;
-        totalWeight += weight;
+        getUserWeight[user] = newUserWeight; 
 
-        emit IncrementGaugeWeight(msg.sender, gauge, weight);
-    } 
+        totalWeight += weight;
+    }
 
     /** 
      @notice increment a list of gauges with some weights for the caller
@@ -165,23 +175,12 @@ abstract contract ERC20Gauges is ERC20, Auth {
         // Update gauge specific state
         for (uint256 i = 0; i < size; i++) {
             address gauge = gaugeList[i];
-            if (!_gauges.contains(gauge)) revert InvalidGaugeError();
-
             uint256 weight = weights[i];
             weightsSum += weight;
 
-            getUserGaugeWeight[msg.sender][gauge] += weight;
-            getGaugeWeight[gauge] += weight;
-            emit IncrementGaugeWeight(msg.sender, gauge, weight);
+            _incrementGaugeWeight(msg.sender, gauge, weight);
         }
-
-        // Ensure under weight
-        newUserWeight = getUserWeight[msg.sender] + weightsSum;
-        if (newUserWeight > balanceOf[msg.sender]) revert OverWeightError();
-
-        // update global state
-        getUserWeight[msg.sender] = newUserWeight; 
-        totalWeight += weightsSum;
+        return _incrementUserAndGlobalWeights(msg.sender, weightsSum);
     }
 
     /** 
@@ -192,14 +191,22 @@ abstract contract ERC20Gauges is ERC20, Auth {
     */
     function decrementGauge(address gauge, uint256 weight) external returns (uint256 newUserWeight) {
         // All operations will revert on underflow, protecting against bad inputs
-        newUserWeight = getUserWeight[msg.sender] - weight;
+        _decrementGaugeWeight(msg.sender, gauge, weight);
+        return _decrementUserAndGlobalWeights(msg.sender, weight);
+    }
 
-        getUserWeight[msg.sender] = newUserWeight;
-        getUserGaugeWeight[msg.sender][gauge] -= weight;
+    function _decrementGaugeWeight(address user, address gauge, uint256 weight) internal {
+        getUserGaugeWeight[user][gauge] -= weight;
         getGaugeWeight[gauge] -= weight;
-        totalWeight -= weight;
 
-        emit DecrementGaugeWeight(msg.sender, gauge, weight);
+        emit DecrementGaugeWeight(user, gauge, weight);
+    }
+
+    function _decrementUserAndGlobalWeights(address user, uint256 weight) internal returns(uint256 newUserWeight) {
+        newUserWeight = getUserWeight[user] - weight;
+
+        getUserWeight[user] = newUserWeight;
+        totalWeight -= weight;
     }
 
     /** 
@@ -222,16 +229,9 @@ abstract contract ERC20Gauges is ERC20, Auth {
             uint256 weight = weights[i];
             weightsSum += weight;
 
-            getUserGaugeWeight[msg.sender][gauge] -= weight;
-            getGaugeWeight[gauge] -= weight;
-            emit DecrementGaugeWeight(msg.sender, gauge, weight);
+            _decrementGaugeWeight(msg.sender, gauge, weight);
         }
-
-        // update global state
-        newUserWeight = getUserWeight[msg.sender] - weightsSum;
-
-        getUserWeight[msg.sender] = newUserWeight;
-        totalWeight -= weightsSum;
+        return _decrementUserAndGlobalWeights(msg.sender, weightsSum);
     }
 
     /// @notice free deprecated gauges for a user. This method can be called by anyone.
@@ -245,11 +245,8 @@ abstract contract ERC20Gauges is ERC20, Auth {
 
             uint256 weight = getUserGaugeWeight[user][gauge];
             if (weight != 0) {
-                getUserGaugeWeight[user][gauge] = 0;
-                getGaugeWeight[gauge] -= weight;
-
                 totalFree += weight;
-                emit DecrementGaugeWeight(user, gauge, weight);
+                _decrementGaugeWeight(user, gauge, weight);
             }
         }
         getUserWeight[user] -= totalFree;
@@ -266,8 +263,8 @@ abstract contract ERC20Gauges is ERC20, Auth {
     }
 
     function _addGauge(address gauge) internal {
-        // add and fail loud if already present
-        if (!_gauges.add(gauge)) revert InvalidGaugeError();
+        // add and fail loud if already present or zero address
+        if (gauge == address(0) || !_gauges.add(gauge)) revert InvalidGaugeError();
         _deprecatedGauges.remove(gauge); // silently remove gauge from deprecated if present
 
         // Check if some previous weight exists and re-add to total. Gauge and user weights are preserved.
@@ -354,9 +351,7 @@ abstract contract ERC20Gauges is ERC20, Auth {
             uint256 userGaugeWeight = getUserGaugeWeight[user][gauge];
             if (userGaugeWeight != 0) {
                 totalFreed += userGaugeWeight;
-                getUserGaugeWeight[user][gauge] = 0;
-                getGaugeWeight[gauge] -= userGaugeWeight;
-                emit DecrementGaugeWeight(user, gauge, userGaugeWeight);
+                _decrementGaugeWeight(user, gauge, userGaugeWeight);
             }
         }
 
