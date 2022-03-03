@@ -159,29 +159,34 @@ contract ERC20GaugesTest is DSTestPlus {
         require(token.calculateGaugeAllocation(gauge2, 100e18) == 75e18);
     }
 
+    /// @notice test incrementing different gauges 4 times by multiple users and weights
     function testIncrement() public {
         token.setMaxGauges(2);
         token.addGauge(gauge1);
         token.addGauge(gauge2);
 
+        // gauge1,user1 +1
         require(token.incrementGauge(gauge1, 1e18) == 1e18);
         require(token.getUserGaugeWeight(address(this), gauge1) == 1e18);
         require(token.getUserWeight(address(this)) == 1e18);
         require(token.getGaugeWeight(gauge1) == 1e18);
         require(token.totalWeight() == 1e18);
 
+        // gauge2,user1 +2
         require(token.incrementGauge(gauge2, 2e18) == 3e18);
         require(token.getUserGaugeWeight(address(this), gauge2) == 2e18);
         require(token.getUserWeight(address(this)) == 3e18);
         require(token.getGaugeWeight(gauge2) == 2e18);
         require(token.totalWeight() == 3e18);
 
+        // gauge1,user1 +4
         require(token.incrementGauge(gauge1, 4e18) == 7e18);
         require(token.getUserGaugeWeight(address(this), gauge1) == 5e18);
         require(token.getUserWeight(address(this)) == 7e18);
         require(token.getGaugeWeight(gauge1) == 5e18);
         require(token.totalWeight() == 7e18);
 
+        // gauge2,user2 +3
         hevm.startPrank(address(1));
         token.mint(address(1), 10e18);
 
@@ -210,6 +215,8 @@ contract ERC20GaugesTest is DSTestPlus {
         token.incrementGauge(gauge2, 51e18);
     }
 
+    
+    /// @notice test incrementing multiple gauges with different weights after already incrementing once
     function testIncrementGauges() public {
         token.setMaxGauges(2);
         token.addGauge(gauge1);
@@ -281,6 +288,7 @@ contract ERC20GaugesTest is DSTestPlus {
         token.incrementGauges(gaugeList, weights);    
     }
 
+    /// @notice test decrement twice, 2 tokens each after incrementing by 4.
     function testDecrement() public {
         token.setMaxGauges(2);
         token.addGauge(gauge1);
