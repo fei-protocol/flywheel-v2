@@ -5,8 +5,10 @@ pragma solidity ^0.8.0;
 
 import "solmate/tokens/ERC20.sol";
 import "solmate/utils/SafeCastLib.sol";
+import "../../lib/EnumerableSet.sol";
 
-abstract contract ERC20Votes is ERC20 {
+abstract contract ERC20MultiVotes is ERC20 {
+    using EnumerableSet for EnumerableSet.AddressSet;
     using SafeCastLib for *;
 
     struct Checkpoint {
@@ -14,14 +16,13 @@ abstract contract ERC20Votes is ERC20 {
         uint224 votes;
     }
 
-    mapping(address => address) private _delegates;
-    mapping(address => Checkpoint[]) private _checkpoints;
-    Checkpoint[] private _totalSupplyCheckpoints;
+    mapping(address => mapping(address => uint256)) private _delegates;
 
-    /**
-     * @dev Emitted when an account changes their delegate.
-     */
-    event DelegateChanged(address indexed delegator, address indexed fromDelegate, address indexed toDelegate);
+    mapping(address => uint256) public delegatedVotes;
+
+    mapping(address => Checkpoint[]) private _checkpoints;
+
+    mapping(address => EnumerableSet.AddressSet) private _delegateList;
 
     /**
      * @dev Emitted when a token transfer or delegate change results in changes to an account's voting power.
@@ -43,10 +44,14 @@ abstract contract ERC20Votes is ERC20 {
     }
 
     /**
-     * @dev Get the address `account` is currently delegating to.
+     * @dev Get the amount of votes currently delegated by `account` to `delegatee`
      */
-    function delegates(address account) public view virtual returns (address) {
-        return _delegates[account];
+    function delegates(address account, address delegatee) public view virtual returns (uint256) {
+        return _delegates[account][delegatee];
+    }
+
+    function freeVotes(address account) public view virtual returns (uint256) {
+        return balanceOf[account] - delegatedVotes[account];
     }
 
     /**
@@ -70,33 +75,10 @@ abstract contract ERC20Votes is ERC20 {
     }
 
     /**
-     * @dev Retrieve the `totalSupply` at the end of `blockNumber`. Note, this value is the sum of all balances.
-     * It is but NOT the sum of all the delegated votes!
-     *
-     * Requirements:
-     *
-     * - `blockNumber` must have been already mined
-     */
-    function getPastTotalSupply(uint256 blockNumber) public view returns (uint256) {
-        require(blockNumber < block.number, "ERC20Votes: block not yet mined");
-        return _checkpointsLookup(_totalSupplyCheckpoints, blockNumber);
-    }
-
-    /**
      * @dev Lookup a value in a list of (sorted) checkpoints.
      */
     function _checkpointsLookup(Checkpoint[] storage ckpts, uint256 blockNumber) private view returns (uint256) {
         // We run a binary search to look for the earliest checkpoint taken after `blockNumber`.
-        //
-        // During the loop, the index of the wanted checkpoint remains in the range [low-1, high).
-        // With each iteration, either `low` or `high` is moved towards the middle of the range to maintain the invariant.
-        // - If the middle checkpoint is after `blockNumber`, we look in [low, mid)
-        // - If the middle checkpoint is before or equal to `blockNumber`, we look in [mid+1, high)
-        // Once we reach a single value (when low == high), we've found the right checkpoint at the index high-1, if not
-        // out of bounds (in which case we're looking too far in the past and the result is 0).
-        // Note that if the latest checkpoint available is exactly for `blockNumber`, we end up with an index that is
-        // past the end of the array, so we technically don't find a checkpoint after `blockNumber`, but it works out
-        // the same.
         uint256 high = ckpts.length;
         uint256 low = 0;
         while (low < high) {
@@ -114,98 +96,77 @@ abstract contract ERC20Votes is ERC20 {
     /**
      * @dev Delegate votes from the sender to `delegatee`.
      */
-    function delegate(address delegatee) public virtual {
-        _delegate(msg.sender, delegatee);
+    function delegate(address delegatee, uint256 amount) public virtual {
+        _delegate(msg.sender, delegatee, amount);
     }
 
     /**
-     * @dev Maximum token supply. Defaults to `type(uint224).max` (2^224^ - 1).
+     * @dev Delegate votes from the sender to `delegatee`.
      */
-    function _maxSupply() internal view virtual returns (uint224) {
-        return type(uint224).max;
+    function undelegate(address delegatee, uint256 amount) public virtual {
+        _undelegate(msg.sender, delegatee, amount);
     }
 
     /**
-     * @dev Snapshots the totalSupply after it has been increased.
+     * @dev Delegate votes from the sender to `delegatee`.
      */
-    function _mint(address account, uint256 amount) internal virtual override {
-        super._mint(account, amount);
-        require(totalSupply <= _maxSupply(), "ERC20Votes: total supply risks overflowing votes");
-
-        _writeCheckpoint(_totalSupplyCheckpoints, _add, amount);
+    function redelegate(address oldDelegatee, address newDelegatee, uint256 amount) public virtual {
+        _undelegate(msg.sender, oldDelegatee, amount);
+        _delegate(msg.sender, newDelegatee, amount);
     }
-
-    /**
-     * @dev Snapshots the totalSupply after it has been decreased.
-     */
-    function _burn(address account, uint256 amount) internal virtual override {
-        super._burn(account, amount);
-
-        _writeCheckpoint(_totalSupplyCheckpoints, _subtract, amount);
-    }
-
-    // /**
-    //  * @dev Move voting power when tokens are transferred.
-    //  *
-    //  * Emits a {DelegateVotesChanged} event.
-    //  */
-    // function _afterTokenTransfer(
-    //     address from,
-    //     address to,
-    //     uint256 amount
-    // ) internal virtual override {
-    //     super._afterTokenTransfer(from, to, amount);
-
-    //     _moveVotingPower(delegates(from), delegates(to), amount);
-    // }
 
     /**
      * @dev Change delegation for `delegator` to `delegatee`.
      *
      * Emits events {DelegateChanged} and {DelegateVotesChanged}.
      */
-    function _delegate(address delegator, address delegatee) internal virtual {
-        address currentDelegate = delegates(delegator);
-        uint256 delegatorBalance = balanceOf[delegator];
-        _delegates[delegator] = delegatee;
+    function _delegate(address delegator, address delegatee, uint256 amount) internal virtual {
+        uint256 free = freeVotes(delegator);
+        require(free >= amount);
 
-        emit DelegateChanged(delegator, currentDelegate, delegatee);
+        _delegateList[delegator].add(delegatee); // idempotent add
 
-        _moveVotingPower(currentDelegate, delegatee, delegatorBalance);
+        _delegates[delegator][delegatee] += amount;
+        delegatedVotes[delegator] += amount;
+
+        _writeCheckpoint(delegatee, _add, amount);
     }
 
-    function _moveVotingPower(
-        address src,
-        address dst,
-        uint256 amount
-    ) private {
-        if (src != dst && amount > 0) {
-            if (src != address(0)) {
-                (uint256 oldWeight, uint256 newWeight) = _writeCheckpoint(_checkpoints[src], _subtract, amount);
-                emit DelegateVotesChanged(src, oldWeight, newWeight);
-            }
+    /**
+     * @dev Change delegation for `delegator` to `delegatee`.
+     *
+     * Emits events {DelegateChanged} and {DelegateVotesChanged}.
+     */
+    function _undelegate(address delegator, address delegatee, uint256 amount) internal virtual {
+        uint256 newDelegates = _delegates[delegator][delegatee] - amount;
 
-            if (dst != address(0)) {
-                (uint256 oldWeight, uint256 newWeight) = _writeCheckpoint(_checkpoints[dst], _add, amount);
-                emit DelegateVotesChanged(dst, oldWeight, newWeight);
-            }
+        if (newDelegates == 0) {
+            require(_delegateList[delegator].remove(delegatee)); // fail loud
         }
+        
+        _delegates[delegator][delegatee] = newDelegates;
+        delegatedVotes[delegator] -= amount;
+
+        _writeCheckpoint(delegatee, _subtract, amount);
     }
 
     function _writeCheckpoint(
-        Checkpoint[] storage ckpts,
+        address delegatee,
         function(uint256, uint256) view returns (uint256) op,
         uint256 delta
-    ) private returns (uint256 oldWeight, uint256 newWeight) {
+    ) private {
+        Checkpoint[] storage ckpts = _checkpoints[delegatee];
+
         uint256 pos = ckpts.length;
-        oldWeight = pos == 0 ? 0 : ckpts[pos - 1].votes;
-        newWeight = op(oldWeight, delta);
+        uint256 oldWeight = pos == 0 ? 0 : ckpts[pos - 1].votes;
+        uint256 newWeight = op(oldWeight, delta);
 
         if (pos > 0 && ckpts[pos - 1].fromBlock == block.number) {
             ckpts[pos - 1].votes = newWeight.safeCastTo224();
         } else {
             ckpts.push(Checkpoint({fromBlock: block.number.safeCastTo32(), votes: newWeight.safeCastTo224()}));
         }
+        emit DelegateVotesChanged(delegatee, oldWeight, newWeight);
     }
 
     function _add(uint256 a, uint256 b) private pure returns (uint256) {
@@ -219,5 +180,63 @@ abstract contract ERC20Votes is ERC20 {
     function average(uint256 a, uint256 b) internal pure returns (uint256) {
         // (a + b) / 2 can overflow.
         return (a & b) + (a ^ b) / 2;
+    }
+
+    /*///////////////////////////////////////////////////////////////
+                             ERC20 LOGIC
+    //////////////////////////////////////////////////////////////*/
+
+    /// NOTE: any "removal" of tokens from a user requires freeVotes(user) < amount.
+    /// _decrementUntilFree is called as a greedy algorithm to free up votes.
+    /// It may be more gas efficient to free weight before burning or transferring tokens.
+    
+
+    function _burn(address from, uint256 amount) internal virtual override {
+        _decrementUntilFree(from, amount);
+        super._burn(from, amount);
+    }
+
+    function transfer(address to, uint256 amount) public virtual override returns(bool) {
+        _decrementUntilFree(msg.sender, amount);
+        return super.transfer(to, amount);
+    }
+
+    function transferFrom(address from, address to, uint256 amount) public virtual override returns(bool) {
+        _decrementUntilFree(from, amount);
+        return super.transferFrom(from, to, amount);
+    }
+
+    /// a greedy algorithm for freeing votes before a token burn/transfer
+    /// frees up entire delegates, so likely will free more than `votes`
+    function _decrementUntilFree(address user, uint256 votes) internal {
+        uint256 userFreeVotes = freeVotes(user);
+
+        // early return if already free
+        if (userFreeVotes >= votes) return;
+
+        // cache total for batch updates
+        uint256 totalFreed;
+
+        // Loop through all delegates
+        address[] memory delegateList = _delegateList[user].values();
+
+        // Free delegates until through entire list or under weight
+        uint256 size = delegateList.length;
+        for (uint256 i = 0; i < size && (userFreeVotes + totalFreed) < votes; i++) {
+            address delegatee = delegateList[i];
+            uint256 delegateVotes = _delegates[user][delegatee];
+            if (delegateVotes != 0) {
+                totalFreed += delegateVotes;
+                
+                require(_delegateList[user].remove(delegatee)); // fail loud
+
+                
+                _delegates[user][delegatee] = 0;
+
+                _writeCheckpoint(delegatee, _subtract, delegateVotes);
+            }
+        }
+
+        delegatedVotes[user] -= totalFreed;
     }
 }
