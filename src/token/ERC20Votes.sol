@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-// Forked logic from OpenZeppelin Contracts v4.4.1 (token/ERC20/extensions/ERC20Votes.sol)
+// Voting logic inspired by OpenZeppelin Contracts v4.4.1 (token/ERC20/extensions/ERC20Votes.sol)
 
 pragma solidity ^0.8.0;
 
@@ -7,55 +7,52 @@ import "solmate/tokens/ERC20.sol";
 import "solmate/utils/SafeCastLib.sol";
 import "../../lib/EnumerableSet.sol";
 
+/**
+ @title ERC20 Multi-Delegation Voting contract
+ @notice an ERC20 extension which allows delegations to multiple delegatees up to a user's balance on a given block.
+ */
 abstract contract ERC20MultiVotes is ERC20 {
     using EnumerableSet for EnumerableSet.AddressSet;
     using SafeCastLib for *;
+
+    /*///////////////////////////////////////////////////////////////
+                        VOTE CALCULATION LOGIC
+    //////////////////////////////////////////////////////////////*/
+
+    /// @notice thrown when trying to read from an invalid block.
+    error BlockError();
 
     struct Checkpoint {
         uint32 fromBlock;
         uint224 votes;
     }
 
-    mapping(address => mapping(address => uint256)) private _delegates;
-
-    mapping(address => uint256) public delegatedVotes;
-
+    /// @notice votes checkpoint list per user.
     mapping(address => Checkpoint[]) private _checkpoints;
 
-    mapping(address => EnumerableSet.AddressSet) private _delegateList;
-
-    /**
-     * @dev Emitted when a token transfer or delegate change results in changes to an account's voting power.
-     */
-    event DelegateVotesChanged(address indexed delegate, uint256 previousBalance, uint256 newBalance);
-
-    /**
-     * @dev Get the `pos`-th checkpoint for `account`.
-     */
+    /// @notice Get the `pos`-th checkpoint for `account`.
     function checkpoints(address account, uint32 pos) public view virtual returns (Checkpoint memory) {
         return _checkpoints[account][pos];
     }
 
-    /**
-     * @dev Get number of checkpoints for `account`.
-     */
+    /// @notice Get number of checkpoints for `account`.
     function numCheckpoints(address account) public view virtual returns (uint32) {
         return _checkpoints[account].length.safeCastTo32();
     }
 
     /**
-     * @dev Get the amount of votes currently delegated by `account` to `delegatee`
+     * @notice Gets the amount of unallocated votes for `account`.
+     * @param account the address to get free votes of.
+     * @return the amount of unallocated votes.
      */
-    function delegates(address account, address delegatee) public view virtual returns (uint256) {
-        return _delegates[account][delegatee];
-    }
-
     function freeVotes(address account) public view virtual returns (uint256) {
-        return balanceOf[account] - delegatedVotes[account];
+        return balanceOf[account] - userDelegatedVotes[account];
     }
 
     /**
-     * @dev Gets the current votes balance for `account`
+     * @notice Gets the current votes balance for `account`.
+     * @param account the address to get votes of.
+     * @return the amount of votes.
      */
     function getVotes(address account) public view returns (uint256) {
         uint256 pos = _checkpoints[account].length;
@@ -63,20 +60,17 @@ abstract contract ERC20MultiVotes is ERC20 {
     }
 
     /**
-     * @dev Retrieve the number of votes for `account` at the end of `blockNumber`.
-     *
-     * Requirements:
-     *
-     * - `blockNumber` must have been already mined
+     * @notice Retrieve the number of votes for `account` at the end of `blockNumber`.
+     * @param account the address to get votes of.
+     * @param blockNumber the block to calculate votes for.
+     * @return the amount of votes.
      */
     function getPastVotes(address account, uint256 blockNumber) public view returns (uint256) {
-        require(blockNumber < block.number, "ERC20Votes: block not yet mined");
+        if (blockNumber >= block.number) revert BlockError();
         return _checkpointsLookup(_checkpoints[account], blockNumber);
     }
 
-    /**
-     * @dev Lookup a value in a list of (sorted) checkpoints.
-     */
+    /// @dev Lookup a value in a list of (sorted) checkpoints.
     function _checkpointsLookup(Checkpoint[] storage ckpts, uint256 blockNumber) private view returns (uint256) {
         // We run a binary search to look for the earliest checkpoint taken after `blockNumber`.
         uint256 high = ckpts.length;
@@ -93,60 +87,120 @@ abstract contract ERC20MultiVotes is ERC20 {
         return high == 0 ? 0 : ckpts[high - 1].votes;
     }
 
+    function average(uint256 a, uint256 b) internal pure returns (uint256) {
+        // (a + b) / 2 can overflow.
+        return (a & b) + (a ^ b) / 2;
+    }
+
+    /*///////////////////////////////////////////////////////////////
+                        DELEGATION LOGIC
+    //////////////////////////////////////////////////////////////*/
+
+    /// @dev Emitted when a `delegator` delegates `amount` votes to `delegate`.
+    event Delegation(address indexed delegator, address indexed delegate, uint256 amount);
+    
+    /// @dev Emitted when a `delegator` undelegates `amount` votes from `delegate`.
+    event Undelegation(address indexed delegator, address indexed delegate, uint256 amount);
+
+    /// @dev Emitted when a token transfer or delegate change results in changes to an account's voting power.
+    event DelegateVotesChanged(address indexed delegate, uint256 previousBalance, uint256 newBalance);
+
+    /// @dev thrown when attempting to delegate more votes than an address has free.
+    error DelegationError();
+
+    /// @notice mapping from a delegator and delegatee to the delegated amount.
+    mapping(address => mapping(address => uint256)) private _delegatesVotesCount;
+
+    /// @notice mapping from a delegator to the total number of delegated votes.
+    mapping(address => uint256) public userDelegatedVotes;
+
+    /// @notice list of delegates per user.
+    mapping(address => EnumerableSet.AddressSet) private _delegates;
+
     /**
-     * @dev Delegate votes from the sender to `delegatee`.
+     * @notice Get the amount of votes currently delegated by `delegator` to `delegatee`.
+     * @param delegator the account which is delegating votes to `delegatee`.
+     * @param delegatee the account receiving votes from `delegator`.
+     * @return the total amount of votes delegated to `delegatee` by `delegator`
+     */
+    function delegatesVotesCount(address delegator, address delegatee) public view virtual returns (uint256) {
+        return _delegatesVotesCount[delegator][delegatee];
+    }
+
+    /**
+     * @notice Get the list of delegates from `delegator`.
+     * @param delegator the account which is delegating votes to delegates.
+     * @return the list of delegated accounts.
+     */
+    function delegates(address delegator) public view returns (address[] memory) {
+        return _delegates[delegator].values();
+    }
+
+    /**
+     * @notice Get the number of delegates from `delegator`.
+     * @param delegator the account which is delegating votes to delegates.
+     * @return the number of delegated accounts.
+     */
+    function delegateCount(address delegator) public view returns (uint256) {
+        return _delegates[delegator].length();
+    }
+
+    /**
+     * @notice Delegate `amount` votes from the sender to `delegatee`.
+     * @param delegatee the receivier of votes.
+     * @param amount the amount of votes received.
+     * @dev requires "freeVotes(msg.sender) > amount".
      */
     function delegate(address delegatee, uint256 amount) public virtual {
         _delegate(msg.sender, delegatee, amount);
     }
-
+    
     /**
-     * @dev Delegate votes from the sender to `delegatee`.
+     * @notice Undelegate `amount` votes from the sender from `delegatee`.
+     * @param delegatee the receivier of undelegation.
+     * @param amount the amount of votes taken away.
      */
     function undelegate(address delegatee, uint256 amount) public virtual {
         _undelegate(msg.sender, delegatee, amount);
     }
 
     /**
-     * @dev Delegate votes from the sender to `delegatee`.
+     * @notice Transfer `amount` votes from the sender's delegation of `oldDelegatee` to `newDelegatee`.
+     * @param oldDelegatee the receivier of undelegation.
+     * @param newDelegatee the receiver of votes.
+     * @param amount the amount of votes received.
      */
     function redelegate(address oldDelegatee, address newDelegatee, uint256 amount) public virtual {
         _undelegate(msg.sender, oldDelegatee, amount);
         _delegate(msg.sender, newDelegatee, amount);
     }
 
-    /**
-     * @dev Change delegation for `delegator` to `delegatee`.
-     *
-     * Emits events {DelegateChanged} and {DelegateVotesChanged}.
-     */
     function _delegate(address delegator, address delegatee, uint256 amount) internal virtual {
+        
+        // Require freeVotes exceed the delegation size
         uint256 free = freeVotes(delegator);
-        require(free >= amount);
+        if (free < amount) revert DelegationError();
 
-        _delegateList[delegator].add(delegatee); // idempotent add
+        _delegates[delegator].add(delegatee); // idempotent add
 
-        _delegates[delegator][delegatee] += amount;
-        delegatedVotes[delegator] += amount;
+        _delegatesVotesCount[delegator][delegatee] += amount;
+        userDelegatedVotes[delegator] += amount;
 
+        emit Delegation(delegator, delegatee, amount);
         _writeCheckpoint(delegatee, _add, amount);
     }
 
-    /**
-     * @dev Change delegation for `delegator` to `delegatee`.
-     *
-     * Emits events {DelegateChanged} and {DelegateVotesChanged}.
-     */
     function _undelegate(address delegator, address delegatee, uint256 amount) internal virtual {
-        uint256 newDelegates = _delegates[delegator][delegatee] - amount;
+        uint256 newDelegates = _delegatesVotesCount[delegator][delegatee] - amount;
 
         if (newDelegates == 0) {
-            require(_delegateList[delegator].remove(delegatee)); // fail loud
+            assert(_delegates[delegator].remove(delegatee)); // Should never fail.
         }
         
-        _delegates[delegator][delegatee] = newDelegates;
-        delegatedVotes[delegator] -= amount;
+        _delegatesVotesCount[delegator][delegatee] = newDelegates;
+        userDelegatedVotes[delegator] -= amount;
 
+        emit Undelegation(delegator, delegatee, amount);
         _writeCheckpoint(delegatee, _subtract, amount);
     }
 
@@ -177,11 +231,6 @@ abstract contract ERC20MultiVotes is ERC20 {
         return a - b;
     }
 
-    function average(uint256 a, uint256 b) internal pure returns (uint256) {
-        // (a + b) / 2 can overflow.
-        return (a & b) + (a ^ b) / 2;
-    }
-
     /*///////////////////////////////////////////////////////////////
                              ERC20 LOGIC
     //////////////////////////////////////////////////////////////*/
@@ -189,7 +238,7 @@ abstract contract ERC20MultiVotes is ERC20 {
     /// NOTE: any "removal" of tokens from a user requires freeVotes(user) < amount.
     /// _decrementUntilFree is called as a greedy algorithm to free up votes.
     /// It may be more gas efficient to free weight before burning or transferring tokens.
-    
+
 
     function _burn(address from, uint256 amount) internal virtual override {
         _decrementUntilFree(from, amount);
@@ -218,25 +267,26 @@ abstract contract ERC20MultiVotes is ERC20 {
         uint256 totalFreed;
 
         // Loop through all delegates
-        address[] memory delegateList = _delegateList[user].values();
+        address[] memory delegateList = _delegates[user].values();
 
-        // Free delegates until through entire list or under weight
+        // Free delegates until through entire list or under votes amount
         uint256 size = delegateList.length;
         for (uint256 i = 0; i < size && (userFreeVotes + totalFreed) < votes; i++) {
             address delegatee = delegateList[i];
-            uint256 delegateVotes = _delegates[user][delegatee];
+            uint256 delegateVotes = _delegatesVotesCount[user][delegatee];
             if (delegateVotes != 0) {
                 totalFreed += delegateVotes;
                 
-                require(_delegateList[user].remove(delegatee)); // fail loud
+                assert(_delegates[user].remove(delegatee)); // Remove from set. Should never fail.
 
                 
-                _delegates[user][delegatee] = 0;
+                _delegatesVotesCount[user][delegatee] = 0;
 
                 _writeCheckpoint(delegatee, _subtract, delegateVotes);
+                emit Undelegation(user, delegatee, delegateVotes);
             }
         }
 
-        delegatedVotes[user] -= totalFreed;
+        userDelegatedVotes[user] -= totalFreed;
     }
 }
