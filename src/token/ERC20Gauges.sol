@@ -311,28 +311,28 @@ abstract contract ERC20Gauges is ERC20, Auth {
     //////////////////////////////////////////////////////////////*/
 
     /// NOTE: any "removal" of tokens from a user requires userUnusedWeight < amount.
-    /// _decrementUntilFree is called as a greedy algorithm to free up weight.
+    /// _decrementWeightUntilFree is called as a greedy algorithm to free up weight.
     /// It may be more gas efficient to free weight before burning or transferring tokens.
 
 
     function _burn(address from, uint256 amount) internal virtual override {
-        _decrementUntilFree(from, amount);
+        _decrementWeightUntilFree(from, amount);
         super._burn(from, amount);
     }
 
     function transfer(address to, uint256 amount) public virtual override returns(bool) {
-        _decrementUntilFree(msg.sender, amount);
+        _decrementWeightUntilFree(msg.sender, amount);
         return super.transfer(to, amount);
     }
 
     function transferFrom(address from, address to, uint256 amount) public virtual override returns(bool) {
-        _decrementUntilFree(from, amount);
+        _decrementWeightUntilFree(from, amount);
         return super.transferFrom(from, to, amount);
     }
 
     /// a greedy algorithm for freeing weight before a token burn/transfer
     /// frees up entire gauges, so likely will free more than `weight`
-    function _decrementUntilFree(address user, uint256 weight) internal {
+    function _decrementWeightUntilFree(address user, uint256 weight) internal {
         uint256 userFreeWeight = balanceOf[user] - getUserWeight[user];
 
         // early return if already free
