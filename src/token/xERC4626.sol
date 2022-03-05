@@ -10,10 +10,13 @@ abstract contract xERC4626 is ERC4626 {
     /// @notice the length of a rewards cycle
     uint32 public immutable rewardsCycleLength;
 
+    /// @notice the delayed start of the current cycle
+    uint32 public lastSync;
+
     /// @notice the end of the current cycle
     uint32 public rewardsCycleEnd;
 
-    uint192 public lastRewardAmount;
+    uint160 public lastRewardAmount;
 
     uint256 internal storedTotalAssets;
 
@@ -39,7 +42,7 @@ abstract contract xERC4626 is ERC4626 {
 
         // rewards not fully unlocked
         // add unlocked rewards to stored total
-        uint256 unlockedRewards = lastRewardAmount_ * (block.timestamp + rewardsCycleLength - rewardsCycleEnd_) / rewardsCycleLength;
+        uint256 unlockedRewards = lastRewardAmount_ * (block.timestamp - lastSync) / rewardsCycleLength;
         return storedTotalAssets_ + unlockedRewards;
     }
 
@@ -65,7 +68,8 @@ abstract contract xERC4626 is ERC4626 {
         storedTotalAssets = storedTotalAssets_ + lastRewardAmount_; // SSTORE
 
         // Combined single SSTORE
+        lastSync = uint32(block.timestamp);
         rewardsCycleEnd = (uint32(block.timestamp) + rewardsCycleLength) / rewardsCycleLength * rewardsCycleLength;
-        lastRewardAmount = uint192(nextRewards);
+        lastRewardAmount = uint160(nextRewards);
     }
 }
