@@ -16,9 +16,18 @@ interface ITribe {
     function getCurrentVotes(address account) external view returns (uint96);
 }
 
+/**
+ @title xTribe: Yield bearing, voting, and gauge enabled TRIBE
+ @notice xTribe is an ERC-4626 compliant TRIBE token which:
+         * distributes TRIBE rewards to stakers in a manipulation resistant manner.
+         * allows on-chain voting with both xTRIBE and TRIBE voting power.
+         * includes gauges for reward direction
+    
+    The xTRIBE owner/authority ONLY control the maximum number and constituence of gauges.
+ */
 contract xTRIBE is ERC20MultiVotes, ERC20Gauges, xERC4626 {
 
-    constructor(address _owner, Authority _authority, uint32 _rewardsCycleLength, ERC20 _tribe) 
+    constructor(ERC20 _tribe, address _owner, Authority _authority, uint32 _rewardsCycleLength) 
         Auth(_owner, _authority) 
         xERC4626(_rewardsCycleLength) 
         ERC4626(_tribe, "xTribe: Gov + Yield", "xTRIBE")
@@ -32,14 +41,25 @@ contract xTRIBE is ERC20MultiVotes, ERC20Gauges, xERC4626 {
                              VOTING LOGIC
     //////////////////////////////////////////////////////////////*/
 
-    // TODO convert to assets on both
-
+    /**
+     @notice calculate voting power of xTRIBE AND underlying TRIBE voting power for user, converted to xTRIBE shares.
+     @param account the user to calculate voting power of.
+     @return the voting power of `account`.
+     */
     function getVotes(address account) public view override returns (uint256) {
-        return super.getVotes(account) + tribe().getCurrentVotes(account);
+        return super.getVotes(account) + convertToShares(tribe().getCurrentVotes(account));
     }
 
+    /**
+    @notice calculate past voting power at a given block of xTRIBE AND underlying TRIBE voting power for user, converted to xTRIBE shares.
+     @param account the user to calculate voting power of.
+     @param blockNumber the block in the past to get voting power from.
+     @return the voting power of `account` at block `blockNumber`.
+     @dev TRIBE voting power is included converted to xTRIBE shares at the CURRENT conversion rate.
+     Because xTRIBE shares should monotonically increase in value relative to TRIBE, this makes TRIBE historical voting power decay.
+     */ 
     function getPastVotes(address account, uint256 blockNumber) public view override returns (uint256) {
-        return super.getPastVotes(account, blockNumber) + tribe().getPriorVotes(account, blockNumber);
+        return super.getPastVotes(account, blockNumber) + convertToShares(tribe().getPriorVotes(account, blockNumber));
     }
 
     /*///////////////////////////////////////////////////////////////
