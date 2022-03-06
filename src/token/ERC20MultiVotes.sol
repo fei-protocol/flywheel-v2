@@ -3,6 +3,7 @@
 
 pragma solidity ^0.8.0;
 
+import "solmate/auth/Auth.sol";
 import "solmate/tokens/ERC20.sol";
 import "solmate/utils/SafeCastLib.sol";
 import "../../lib/EnumerableSet.sol";
@@ -11,7 +12,7 @@ import "../../lib/EnumerableSet.sol";
  @title ERC20 Multi-Delegation Voting contract
  @notice an ERC20 extension which allows delegations to multiple delegatees up to a user's balance on a given block.
  */
-abstract contract ERC20MultiVotes is ERC20 {
+abstract contract ERC20MultiVotes is ERC20, Auth {
     using EnumerableSet for EnumerableSet.AddressSet;
     using SafeCastLib for *;
 
@@ -93,6 +94,24 @@ abstract contract ERC20MultiVotes is ERC20 {
     }
 
     /*///////////////////////////////////////////////////////////////
+                        ADMIN OPERATIONS
+    //////////////////////////////////////////////////////////////*/
+    
+    /// @notice emitted when updating the maximum amount of delegates per user
+    event MaxDelegatesUpdate(uint256 oldMaxDelegates, uint256 newMaxDelegates);
+
+    /// @notice the maximum amount of delegates for a user at a given time
+    uint256 public maxDelegates;
+
+    /// @notice set the new max delegates per user. Requires auth by `authority`.
+    function setMaxDelegates(uint256 newMax) external requiresAuth {
+        uint256 oldMax = maxDelegates;
+        maxDelegates = newMax;
+
+        emit MaxDelegatesUpdate(oldMax, newMax);
+    }
+
+    /*///////////////////////////////////////////////////////////////
                         DELEGATION LOGIC
     //////////////////////////////////////////////////////////////*/
 
@@ -105,7 +124,7 @@ abstract contract ERC20MultiVotes is ERC20 {
     /// @dev Emitted when a token transfer or delegate change results in changes to an account's voting power.
     event DelegateVotesChanged(address indexed delegate, uint256 previousBalance, uint256 newBalance);
 
-    /// @dev thrown when attempting to delegate more votes than an address has free.
+    /// @dev thrown when attempting to delegate more votes than an address has free, or exceeding the max delegates
     error DelegationError();
 
     /// @notice mapping from a delegator and delegatee to the delegated amount.
@@ -149,7 +168,7 @@ abstract contract ERC20MultiVotes is ERC20 {
      * @notice Delegate `amount` votes from the sender to `delegatee`.
      * @param delegatee the receivier of votes.
      * @param amount the amount of votes received.
-     * @dev requires "freeVotes(msg.sender) > amount".
+     * @dev requires "freeVotes(msg.sender) > amount" and will not exceed max delegates
      */
     function delegate(address delegatee, uint256 amount) public virtual {
         _delegate(msg.sender, delegatee, amount);
@@ -181,7 +200,11 @@ abstract contract ERC20MultiVotes is ERC20 {
         uint256 free = freeVotes(delegator);
         if (free < amount) revert DelegationError();
 
-        _delegates[delegator].add(delegatee); // idempotent add
+        bool newDelegate = _delegates[delegator].add(delegatee); // idempotent add
+        if (newDelegate && delegateCount(delegator) > maxDelegates) {
+            // if new delegate and exceeds max, revert
+            revert DelegationError();
+        }
 
         _delegatesVotesCount[delegator][delegatee] += amount;
         userDelegatedVotes[delegator] += amount;
