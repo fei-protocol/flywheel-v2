@@ -43,28 +43,28 @@ contract FlywheelStaticRewardsTest is DSTestPlus {
         rewardToken.mint(address(rewards), 100 ether);
 
         require(rewards.getAccruedRewards(market, uint32(block.timestamp - 10)) == 10 ether);
-        require(rewardToken.balanceOf(address(this)) == 10 ether);
+        require(rewardToken.balanceOf(address(rewards)) == 100 ether);
     }
 
     function testGetAccruedRewardsAfterEnd() public {
         hevm.warp(1000);
         testSetRewardsInfo();
-        hevm.warp(1000);
+        hevm.warp(2000);
 
         rewardToken.mint(address(rewards), 100 ether);
 
         require(rewards.getAccruedRewards(market, uint32(block.timestamp - 1000)) == 100 ether);
-        require(rewardToken.balanceOf(address(this)) == 100 ether);
+        require(rewardToken.balanceOf(address(rewards)) == 100 ether);
     }
 
     function testGetAccruedRewardsCappedAfterEnd() public {
         hevm.warp(1000);
         testSetRewardsInfo();
-        hevm.warp(1000);
+        hevm.warp(2000);
 
         rewardToken.mint(address(rewards), 20 ether);
 
-        require(rewards.getAccruedRewards(market, uint32(block.timestamp - 1000)) == 20 ether);
-        require(rewardToken.balanceOf(address(this)) == 20 ether);
+        require(rewards.getAccruedRewards(market, uint32(block.timestamp - 1000)) == 100 ether);
+        require(rewardToken.balanceOf(address(rewards)) == 20 ether);
     }
 }
