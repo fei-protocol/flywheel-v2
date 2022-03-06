@@ -40,6 +40,7 @@ contract FlywheelStaticRewards is Auth, IFlywheelRewards {
     ) Auth(_owner, _authority) {
         rewardToken = _rewardToken;
         flywheel = _flywheel;
+        rewardToken.safeApprove(flywheel, type(uint256).max);
     }
 
     /**
@@ -58,7 +59,7 @@ contract FlywheelStaticRewards is Auth, IFlywheelRewards {
      @param lastUpdatedTimestamp the last updated time for market
      @return amount the amount of tokens accrued and transferred
      */
-    function getAccruedRewards(ERC20 market, uint32 lastUpdatedTimestamp) external override returns (uint256 amount) {
+    function getAccruedRewards(ERC20 market, uint32 lastUpdatedTimestamp) external view override returns (uint256 amount) {
         require(msg.sender == flywheel, "!flywheel");
 
         RewardsInfo memory rewards = rewardsInfo[market];
@@ -71,15 +72,5 @@ contract FlywheelStaticRewards is Auth, IFlywheelRewards {
         }
         
         amount = rewards.rewardsPerSecond * elapsed;
-
-        uint256 balance = rewardToken.balanceOf(address(this));
-
-        if (balance < amount) {
-            amount = balance;
-        }
-
-        if (amount != 0) {
-            rewardToken.safeTransfer(flywheel, amount);
-        }
     }
 }
