@@ -13,6 +13,22 @@ contract ERC20MultiVotesTest is DSTestPlus {
     function setUp() public {
         token = new MockERC20MultiVotes(address(this));
         token.mint(address(this), 100e18);
+        token.setMaxDelegates(2);
+    }
+
+    /*///////////////////////////////////////////////////////////////
+                        TEST ADMIN OPERATIONS
+    //////////////////////////////////////////////////////////////*/
+
+    function testSetMaxDelegates() public {
+        token.setMaxDelegates(5);
+        require(token.maxDelegates() == 5);
+    }
+
+    function testSetMaxGaugesNonOwner() public {
+        hevm.prank(address(1));
+        hevm.expectRevert(bytes("UNAUTHORIZED"));
+        token.setMaxDelegates(7);
     }
 
     /*///////////////////////////////////////////////////////////////
@@ -59,6 +75,13 @@ contract ERC20MultiVotesTest is DSTestPlus {
         token.delegate(delegate2, 51e18);
     }
 
+    function testDelegateOverMaxDelegates() public {
+        token.delegate(delegate1, 50e18);
+        token.delegate(delegate2, 1e18);
+        hevm.expectRevert(abi.encodeWithSignature("DelegationError()"));   
+        token.delegate(address(this), 1e18);
+    }
+
     /// @notice test undelegate twice, 2 tokens each after delegating by 4.
     function testUndelegate() public {
         token.delegate(delegate1, 4e18);
@@ -77,8 +100,6 @@ contract ERC20MultiVotesTest is DSTestPlus {
     }   
 
     function testDecrementOverWeight() public {
-        // token.setMaxGauges(2);
-
         token.delegate(delegate1, 50e18);
         hevm.expectRevert(abi.encodeWithSignature("Panic(uint256)", 17));
         token.undelegate(delegate1, 51e18);
