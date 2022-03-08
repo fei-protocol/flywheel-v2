@@ -95,7 +95,7 @@ contract FuseFlywheelLensRouter {
                 rewardsInfo[j] = RewardsInfo({
                     rewardSpeedPerSecondPerToken: rewardSpeedPerSecondPerToken,
                     rewardTokenPrice: rewardTokenPrices[j],
-                    formattedAPR: rewardSpeedPerSecondPerToken * rewardTokenPrices[j] * 365.25 days / price * market.PRECISION() / market.exchangeRateCurrent(),
+                    formattedAPR: rewardSpeedPerSecondPerToken * rewardTokenPrices[j] * 365.25 days / price * 1e18 / market.exchangeRateCurrent(),
                     flywheel: address(flywheel),
                     rewardToken: rewardTokens[j]
                 });
