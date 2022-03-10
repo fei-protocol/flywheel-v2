@@ -3,6 +3,7 @@ pragma solidity 0.8.10;
 
 import {SafeTransferLib, ERC20} from "solmate/utils/SafeTransferLib.sol";
 import {IFlywheelRewards} from "../interfaces/IFlywheelRewards.sol";
+import {IERC4626} from "../interfaces/IERC4626.sol";
 
 /** 
  @title Flywheel Dynamic Reward Stream
@@ -12,15 +13,19 @@ import {IFlywheelRewards} from "../interfaces/IFlywheelRewards.sol";
 contract FlywheelDynamicRewards is IFlywheelRewards {
     using SafeTransferLib for ERC20;
 
+    /// @notice plugin contract
+    IERC4626 public immutable plugin;
+    
     /// @notice the reward token paid
     ERC20 public immutable rewardToken;
 
     /// @notice the flywheel core contract
     address public immutable flywheel;
 
-    constructor(ERC20 _rewardToken, address _flywheel) {
+    constructor(IERC4626 _plugin, ERC20 _rewardToken, address _flywheel) {
         rewardToken = _rewardToken;
         flywheel = _flywheel;
+        plugin = _plugin; 
     }
 
     /**
@@ -30,6 +35,7 @@ contract FlywheelDynamicRewards is IFlywheelRewards {
      */
     function getAccruedRewards(ERC20 market, uint32) external override returns (uint256 amount) {
         require(msg.sender == flywheel, "!flywheel");
+        plugin.claimRewards();
         amount = rewardToken.balanceOf(address(market));
         if (amount > 0) rewardToken.safeTransferFrom(address(market), flywheel, amount);
     }
