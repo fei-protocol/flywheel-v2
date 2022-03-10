@@ -23,9 +23,9 @@ contract FlywheelDynamicRewards is IFlywheelRewards {
     address public immutable flywheel;
 
     constructor(IERC4626 _plugin, ERC20 _rewardToken, address _flywheel) {
+        plugin = _plugin; 
         rewardToken = _rewardToken;
         flywheel = _flywheel;
-        plugin = _plugin; 
     }
 
     /**
