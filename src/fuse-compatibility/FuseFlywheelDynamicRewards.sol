@@ -14,6 +14,8 @@ import {IERC4626} from "../interfaces/IERC4626.sol";
 contract FuseFlywheelDynamicRewards is IFlywheelRewards {
     using SafeTransferLib for ERC20;
 
+    event Log(string message);
+
     /// @notice the reward token paid
     ERC20 public immutable rewardToken;
 
@@ -33,7 +35,9 @@ contract FuseFlywheelDynamicRewards is IFlywheelRewards {
     function getAccruedRewards(ERC20 market, uint32) external override returns (uint256 amount) {
         require(msg.sender == flywheel, "!flywheel");
         IERC4626 plugin = IERC4626(ICERC20(address(market)).plugin());
-        plugin.claimRewards();
+        try plugin.claimRewards() {} catch {
+            emit Log("!plugin.claimRewards()");
+        }
         amount = rewardToken.balanceOf(address(market));
         if (amount > 0) rewardToken.safeTransferFrom(address(market), flywheel, amount);
     }
