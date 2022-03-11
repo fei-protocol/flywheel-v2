@@ -6,8 +6,9 @@ import {ERC20Gauges, ERC20, Auth, Authority} from "../../token/ERC20Gauges.sol";
 
 contract MockERC20Gauges is ERC20Gauges {
     constructor(
-        address _owner
-    ) ERC20("Token", "TKN", 18) Auth(_owner, Authority(address(0))) {}
+        address _owner,
+        uint32 _cycleLength
+    ) ERC20("Token", "TKN", 18) Auth(_owner, Authority(address(0))) ERC20Gauges(_cycleLength) {}
 
     function mint(address to, uint256 value) public virtual {
         _mint(to, value);
