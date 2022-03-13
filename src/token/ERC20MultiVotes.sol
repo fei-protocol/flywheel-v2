@@ -55,7 +55,7 @@ abstract contract ERC20MultiVotes is ERC20, Auth {
      * @param account the address to get votes of.
      * @return the amount of votes.
      */
-    function getVotes(address account) public view returns (uint256) {
+    function getVotes(address account) public view virtual returns (uint256) {
         uint256 pos = _checkpoints[account].length;
         return pos == 0 ? 0 : _checkpoints[account][pos - 1].votes;
     }
@@ -66,7 +66,7 @@ abstract contract ERC20MultiVotes is ERC20, Auth {
      * @param blockNumber the block to calculate votes for.
      * @return the amount of votes.
      */
-    function getPastVotes(address account, uint256 blockNumber) public view returns (uint256) {
+    function getPastVotes(address account, uint256 blockNumber) public view virtual returns (uint256) {
         if (blockNumber >= block.number) revert BlockError();
         return _checkpointsLookup(_checkpoints[account], blockNumber);
     }
@@ -259,28 +259,28 @@ abstract contract ERC20MultiVotes is ERC20, Auth {
     //////////////////////////////////////////////////////////////*/
 
     /// NOTE: any "removal" of tokens from a user requires freeVotes(user) < amount.
-    /// _decrementUntilFree is called as a greedy algorithm to free up votes.
+    /// _decrementVotesUntilFree is called as a greedy algorithm to free up votes.
     /// It may be more gas efficient to free weight before burning or transferring tokens.
 
 
     function _burn(address from, uint256 amount) internal virtual override {
-        _decrementUntilFree(from, amount);
+        _decrementVotesUntilFree(from, amount);
         super._burn(from, amount);
     }
 
     function transfer(address to, uint256 amount) public virtual override returns(bool) {
-        _decrementUntilFree(msg.sender, amount);
+        _decrementVotesUntilFree(msg.sender, amount);
         return super.transfer(to, amount);
     }
 
     function transferFrom(address from, address to, uint256 amount) public virtual override returns(bool) {
-        _decrementUntilFree(from, amount);
+        _decrementVotesUntilFree(from, amount);
         return super.transferFrom(from, to, amount);
     }
 
     /// a greedy algorithm for freeing votes before a token burn/transfer
     /// frees up entire delegates, so likely will free more than `votes`
-    function _decrementUntilFree(address user, uint256 votes) internal {
+    function _decrementVotesUntilFree(address user, uint256 votes) internal {
         uint256 userFreeVotes = freeVotes(user);
 
         // early return if already free
