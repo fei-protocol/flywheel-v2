@@ -148,6 +148,21 @@ abstract contract ERC20Gauges is ERC20, Auth {
         return _gauges.values();
     }
 
+    /** 
+      @notice returns a paginated subset of live gauges
+      @param offset the index of the first gauge element to read
+      @param num the number of gauges to return
+    */
+    function gauges(uint256 offset, uint256 num) external view returns(address[] memory values) {
+        values = new address[](num);
+        for (uint256 i = 0; i < num;) {
+            unchecked {
+                values[i] = _gauges.at(offset + i); // will revert if out of bounds
+                i++;
+            }
+        }
+    }
+
     /// @notice returns the set of previously live but now deprecated gauges
     function deprecatedGauges() external view returns(address[] memory) {
         return _deprecatedGauges.values();
