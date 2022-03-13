@@ -64,8 +64,8 @@ abstract contract xERC4626 is ERC4626 {
 
     // Update storedTotalAssets on withdraw/redeem
     function beforeWithdraw(uint256 amount, uint256 shares) internal virtual override {
-        storedTotalAssets -= amount;
         super.beforeWithdraw(amount, shares);
+        storedTotalAssets -= amount;
     }
 
     // Update storedTotalAssets on deposit/mint
