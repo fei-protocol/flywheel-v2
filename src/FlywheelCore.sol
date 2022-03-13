@@ -123,7 +123,7 @@ contract FlywheelCore is Auth {
         if (accrued != 0) {
             rewardsAccrued[owner] = 0;
 
-            rewardToken.safeTransfer(owner, accrued); 
+            rewardToken.safeTransferFrom(address(flywheelRewards), owner, accrued); 
 
             emit ClaimRewards(owner, accrued);
         }

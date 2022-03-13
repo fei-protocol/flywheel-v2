@@ -79,7 +79,7 @@ contract FlywheelTest is DSTestPlus {
         require(accrued == 2.5 ether);
         require(flywheel.rewardsAccrued(user2) == 0 ether);
 
-        require(rewardToken.balanceOf(address(flywheel)) == 10 ether);
+        require(rewardToken.balanceOf(address(rewards)) == 10 ether);
     }
 
     function testAccrueTwoUsers() public {
@@ -104,7 +104,7 @@ contract FlywheelTest is DSTestPlus {
         require(accrued1 == 2.5 ether);
         require(accrued2 == 7.5 ether);
 
-        require(rewardToken.balanceOf(address(flywheel)) == 10 ether);
+        require(rewardToken.balanceOf(address(rewards)) == 10 ether);
     }
 
     function testAccrueBeforeAddMarket() public {
@@ -153,7 +153,7 @@ contract FlywheelTest is DSTestPlus {
         require(accrued == 2.5 ether);
         require(accrued2 == 7.5 ether);
 
-        require(rewardToken.balanceOf(address(flywheel)) == 10 ether);
+        require(rewardToken.balanceOf(address(rewards)) == 10 ether);
     }
 
     function testAccrueSecondUserLater() public {
@@ -176,7 +176,7 @@ contract FlywheelTest is DSTestPlus {
         require(accrued == 10 ether);
         require(accrued2 == 0);
 
-        require(rewardToken.balanceOf(address(flywheel)) == 10 ether);
+        require(rewardToken.balanceOf(address(rewards)) == 10 ether);
     
         market.mint(user2, 3 ether);
 
@@ -193,14 +193,14 @@ contract FlywheelTest is DSTestPlus {
         require(accrued == 11 ether);
         require(accrued2 == 3 ether);
 
-        require(rewardToken.balanceOf(address(flywheel)) == 14 ether);
+        require(rewardToken.balanceOf(address(rewards)) == 14 ether);
     }
 
     function testClaim() public {
         testAccrue();
         flywheel.claimRewards(user);
 
-        require(rewardToken.balanceOf(address(flywheel)) == 7.5 ether);
+        require(rewardToken.balanceOf(address(rewards)) == 7.5 ether);
         require(rewardToken.balanceOf(user) == 2.5 ether);
         require(flywheel.rewardsAccrued(user) == 0);
 
@@ -243,6 +243,6 @@ contract FlywheelTest is DSTestPlus {
         require(accrued == 5 ether);
         require(flywheel.rewardsAccrued(user2) == 0 ether);
 
-        require(rewardToken.balanceOf(address(flywheel)) == 10 ether);
+        require(rewardToken.balanceOf(address(rewards)) == 10 ether);
     }
 }

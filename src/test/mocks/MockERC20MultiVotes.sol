@@ -2,13 +2,12 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 pragma solidity >=0.8.0;
 
-import {ERC20Gauges, ERC20, Auth, Authority} from "../../token/ERC20Gauges.sol";
+import {ERC20MultiVotes, ERC20, Auth, Authority} from "../../token/ERC20MultiVotes.sol";
 
-contract MockERC20Gauges is ERC20Gauges {
+contract MockERC20MultiVotes is ERC20MultiVotes {
     constructor(
-        address _owner,
-        uint32 _cycleLength
-    ) ERC20("Token", "TKN", 18) Auth(_owner, Authority(address(0))) ERC20Gauges(_cycleLength) {}
+        address _owner
+    ) ERC20("Token", "TKN", 18) Auth(_owner, Authority(address(0))) {}
 
     function mint(address to, uint256 value) public virtual {
         _mint(to, value);
