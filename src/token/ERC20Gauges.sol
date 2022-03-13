@@ -163,14 +163,45 @@ abstract contract ERC20Gauges is ERC20, Auth {
         }
     }
 
+    /// @notice returns the number of live gauges
+    function numGauges() external view returns(uint256) {
+        return _gauges.length();
+    }
+
     /// @notice returns the set of previously live but now deprecated gauges
     function deprecatedGauges() external view returns(address[] memory) {
         return _deprecatedGauges.values();
     }
 
     /// @notice returns the number of live gauges
-    function numGauges() external view returns(uint256) {
-        return _gauges.length();
+    function numDeprecatedGauges() external view returns(uint256) {
+        return _deprecatedGauges.length();
+    }
+
+    /// @notice returns the set of gauges the user has allocated to, may be live or deprecated.
+    function userGauges(address user) external view returns(address[] memory) {
+        return _userGauges[user].values();
+    }
+
+    /** 
+      @notice returns a paginated subset of gauges the user has allocated to, may be live or deprecated.
+      @param user the user to return gauges from.
+      @param offset the index of the first gauge element to read.
+      @param num the number of gauges to return.
+    */
+    function userGauges(address user, uint256 offset, uint256 num) external view returns(address[] memory values) {
+        values = new address[](num);
+        for (uint256 i = 0; i < num;) {
+            unchecked {
+                values[i] = _userGauges[user].at(offset + i); // will revert if out of bounds
+                i++;
+            }
+        }
+    }
+
+    /// @notice returns the number of user gauges
+    function numUserGauges(address user) external view returns(uint256) {
+        return _userGauges[user].length();
     }
 
     /// @notice helper function exposing the amount of weight available to allocate for a user
