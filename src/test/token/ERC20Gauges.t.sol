@@ -11,7 +11,7 @@ contract ERC20GaugesTest is DSTestPlus {
     address constant gauge2 = address(0xBEEF);
 
     function setUp() public {
-        token = new MockERC20Gauges(address(this));
+        token = new MockERC20Gauges(address(this), 3600); // 1 hour cycles
         token.mint(address(this), 100e18);
     }
 
@@ -150,11 +150,13 @@ contract ERC20GaugesTest is DSTestPlus {
         require(token.incrementGauge(gauge1, 1e18) == 1e18);
         require(token.incrementGauge(gauge2, 1e18) == 2e18);
 
+        hevm.warp(3600); // warp 1 hour
         require(token.calculateGaugeAllocation(gauge1, 100e18) == 50e18);
         require(token.calculateGaugeAllocation(gauge2, 100e18) == 50e18);
 
         require(token.incrementGauge(gauge2, 2e18) == 4e18);
 
+        hevm.warp(7200); // warp another hour
         require(token.calculateGaugeAllocation(gauge1, 100e18) == 25e18);
         require(token.calculateGaugeAllocation(gauge2, 100e18) == 75e18);
     }
@@ -225,7 +227,7 @@ contract ERC20GaugesTest is DSTestPlus {
         token.incrementGauge(gauge1, 1e18);
 
         address[] memory gaugeList = new address[](2);
-        uint[] memory weights = new uint[](2);
+        uint112[] memory weights = new uint112[](2);
         gaugeList[0] = gauge2;
         gaugeList[1] = gauge1;
         weights[0] = 2e18;
@@ -248,7 +250,7 @@ contract ERC20GaugesTest is DSTestPlus {
         token.removeGauge(gauge2);
 
         address[] memory gaugeList = new address[](2);
-        uint[] memory weights = new uint[](2);
+        uint112[] memory weights = new uint112[](2);
         gaugeList[0] = gauge2;
         gaugeList[1] = gauge1;
         weights[0] = 2e18;
@@ -263,7 +265,7 @@ contract ERC20GaugesTest is DSTestPlus {
         token.addGauge(gauge2);
 
         address[] memory gaugeList = new address[](2);
-        uint[] memory weights = new uint[](2);
+        uint112[] memory weights = new uint112[](2);
         gaugeList[0] = gauge2;
         gaugeList[1] = gauge1;
         weights[0] = 50e18;
@@ -279,7 +281,7 @@ contract ERC20GaugesTest is DSTestPlus {
         token.removeGauge(gauge2);
 
         address[] memory gaugeList = new address[](2);
-        uint[] memory weights = new uint[](3);
+        uint112[] memory weights = new uint112[](3);
         gaugeList[0] = gauge2;
         gaugeList[1] = gauge1;
         weights[0] = 1e18;
@@ -327,7 +329,7 @@ contract ERC20GaugesTest is DSTestPlus {
         token.incrementGauge(gauge1, 1e18);
 
         address[] memory gaugeList = new address[](2);
-        uint[] memory weights = new uint[](2);
+        uint112[] memory weights = new uint112[](2);
         gaugeList[0] = gauge2;
         gaugeList[1] = gauge1;
         weights[0] = 2e18;
@@ -352,7 +354,7 @@ contract ERC20GaugesTest is DSTestPlus {
         token.addGauge(gauge2);
 
         address[] memory gaugeList = new address[](2);
-        uint[] memory weights = new uint[](2);
+        uint112[] memory weights = new uint112[](2);
         gaugeList[0] = gauge2;
         gaugeList[1] = gauge1;
         weights[0] = 5e18;
@@ -371,7 +373,7 @@ contract ERC20GaugesTest is DSTestPlus {
         token.addGauge(gauge2);
 
         address[] memory gaugeList = new address[](2);
-        uint[] memory weights = new uint[](2);
+        uint112[] memory weights = new uint112[](2);
         gaugeList[0] = gauge2;
         gaugeList[1] = gauge1;
         weights[0] = 1e18;
@@ -379,7 +381,7 @@ contract ERC20GaugesTest is DSTestPlus {
 
         require(token.incrementGauges(gaugeList, weights) == 3e18); 
         hevm.expectRevert(abi.encodeWithSignature("SizeMismatchError()"));   
-        token.decrementGauges(gaugeList, new uint[](0));    
+        token.decrementGauges(gaugeList, new uint112[](0));    
     }
 
     function testFreeDeprecated() public {
@@ -388,7 +390,7 @@ contract ERC20GaugesTest is DSTestPlus {
         token.addGauge(gauge2);
 
         address[] memory gaugeList = new address[](2);
-        uint[] memory weights = new uint[](2);
+        uint112[] memory weights = new uint112[](2);
         gaugeList[0] = gauge2;
         gaugeList[1] = gauge1;
         weights[0] = 1e18;
@@ -417,7 +419,7 @@ contract ERC20GaugesTest is DSTestPlus {
         token.addGauge(gauge2);
 
         address[] memory gaugeList = new address[](2);
-        uint[] memory weights = new uint[](2);
+        uint112[] memory weights = new uint112[](2);
         gaugeList[0] = gauge2;
         gaugeList[1] = gauge1;
         weights[0] = 1e18;
@@ -444,11 +446,9 @@ contract ERC20GaugesTest is DSTestPlus {
         require(token.incrementGauge(gauge1, 10e18) == 10e18);
         require(token.incrementGauge(gauge2, 20e18) == 30e18);
         require(token.userUnusedWeight(address(this)) == 70e18);
-        require(token.totalUnusedWeight() == 70e18);
 
         token.burn(address(this), 50e18);
         require(token.userUnusedWeight(address(this)) == 20e18);
-        require(token.totalUnusedWeight() == 20e18);
 
         require(token.getUserGaugeWeight(address(this), gauge1) == 10e18);
         require(token.getUserWeight(address(this)) == 30e18);
@@ -466,10 +466,8 @@ contract ERC20GaugesTest is DSTestPlus {
         require(token.incrementGauge(gauge1, 10e18) == 10e18);
         require(token.incrementGauge(gauge2, 20e18) == 30e18);
         require(token.userUnusedWeight(address(this)) == 70e18);
-        require(token.totalUnusedWeight() == 70e18);
 
         token.transfer(address(1), 80e18);
-        require(token.totalUnusedWeight() == 80e18);
         require(token.userUnusedWeight(address(this)) == 0);
 
         require(token.getUserGaugeWeight(address(this), gauge1) == 0);
@@ -488,13 +486,11 @@ contract ERC20GaugesTest is DSTestPlus {
         require(token.incrementGauge(gauge1, 10e18) == 10e18);
         require(token.incrementGauge(gauge2, 20e18) == 30e18);
         require(token.userUnusedWeight(address(this)) == 70e18);
-        require(token.totalUnusedWeight() == 70e18);
 
         token.approve(address(1), 100e18);
         hevm.prank(address(1));
         token.transferFrom(address(this), address(1), 90e18);
 
-        require(token.totalUnusedWeight() == 100e18);
         require(token.userUnusedWeight(address(this)) == 10e18);
 
         require(token.getUserGaugeWeight(address(this), gauge1) == 0);
@@ -516,11 +512,9 @@ contract ERC20GaugesTest is DSTestPlus {
         token.removeGauge(gauge2);
 
         require(token.userUnusedWeight(address(this)) == 70e18);
-        require(token.totalUnusedWeight() == 90e18);
 
         token.burn(address(this), 90e18);
 
-        require(token.totalUnusedWeight() == 10e18);
         require(token.userUnusedWeight(address(this)) == 10e18);
 
         require(token.getUserGaugeWeight(address(this), gauge1) == 0);
