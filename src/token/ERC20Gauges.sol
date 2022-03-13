@@ -44,6 +44,8 @@ abstract contract ERC20Gauges is ERC20, Auth {
 
     error OverWeightError();
 
+    error NonContractError();
+
     /*///////////////////////////////////////////////////////////////
                                 EVENTS
     //////////////////////////////////////////////////////////////*/
@@ -58,6 +60,8 @@ abstract contract ERC20Gauges is ERC20, Auth {
 
     event MaxGaugesUpdate(uint256 oldMaxGauges, uint256 newMaxGauges);
 
+    event CanContractExceedMaxUpdate(address indexed account, bool canContractExceedMax);
+
     /*///////////////////////////////////////////////////////////////
                         GAUGE STATE
     //////////////////////////////////////////////////////////////*/
@@ -71,8 +75,11 @@ abstract contract ERC20Gauges is ERC20, Auth {
         uint32 currentCycle;
     }
 
-    /// @notice the maximum amount of live gauges at a given time
+    /// @notice the default maximum amount of gauges a user can allocate to.
     uint256 public maxGauges;
+
+    /// @notice an approve list for contracts to go above the max gauge limit.
+    mapping(address => bool) public canContractExceedMax;
 
     /// @notice a mapping from users to gauges to a user's allocated weight to that gauge
     mapping(address => mapping(address => uint112)) public getUserGaugeWeight;
@@ -87,6 +94,8 @@ abstract contract ERC20Gauges is ERC20, Auth {
 
     /// @notice the total global allocated weight ONLY of live gauges
     Weight internal _totalWeight;
+
+    mapping(address => EnumerableSet.AddressSet) internal _userGauges;
 
     EnumerableSet.AddressSet internal _gauges;
 
@@ -167,6 +176,9 @@ abstract contract ERC20Gauges is ERC20, Auth {
 
     function _incrementGaugeWeight(address user, address gauge, uint112 weight, uint32 cycle) internal {
         if (!_gauges.contains(gauge)) revert InvalidGaugeError();
+        
+        bool added = _userGauges[user].add(gauge); // idempotent add
+        if (added && _userGauges[user].length() > maxGauges && !canContractExceedMax[user]) revert MaxGaugeError();
 
         getUserGaugeWeight[user][gauge] += weight;
 
@@ -228,7 +240,13 @@ abstract contract ERC20Gauges is ERC20, Auth {
     }
 
     function _decrementGaugeWeight(address user, address gauge, uint112 weight, uint32 cycle) internal {
-        getUserGaugeWeight[user][gauge] -= weight;
+        uint112 oldWeight = getUserGaugeWeight[user][gauge];
+        
+        getUserGaugeWeight[user][gauge] = oldWeight - weight;
+        if (oldWeight == weight) {
+            // If removing all weight, remove gauge from user list.
+            assert(_userGauges[user].remove(gauge));
+        }
 
         _writeGaugeWeight(_getGaugeWeight[gauge], _subtract, weight, cycle); 
 
@@ -269,26 +287,6 @@ abstract contract ERC20Gauges is ERC20, Auth {
         return _decrementUserAndGlobalWeights(msg.sender, weightsSum, currentCycle);
     }
 
-    /// @notice free deprecated gauges for a user. This method can be called by anyone.
-    function freeDeprecatedGauges(address user, address[] memory gaugeList) public {
-        uint256 size = gaugeList.length;
-
-        uint32 currentCycle = (uint32(block.timestamp) + gaugeCycleLength) / gaugeCycleLength * gaugeCycleLength;
-
-        uint112 totalFree;
-        for (uint256 i = 0; i < size; i++) {
-            address gauge = gaugeList[i];
-            if (!_deprecatedGauges.contains(gauge)) revert InvalidGaugeError();
-
-            uint112 weight = getUserGaugeWeight[user][gauge];
-            if (weight != 0) {
-                totalFree += weight;
-                _decrementGaugeWeight(user, gauge, weight, currentCycle);
-            }
-        }
-        getUserWeight[user] -= totalFree;
-    }
-
     function _writeGaugeWeight(
         Weight storage weight,
         function(uint112, uint112) view returns (uint112) op,
@@ -317,7 +315,6 @@ abstract contract ERC20Gauges is ERC20, Auth {
 
     /// @notice add a new gauge. Requires auth by `authority`.
     function addGauge(address gauge) external requiresAuth {
-        if (_gauges.length() >= maxGauges) revert MaxGaugeError();
         _addGauge(gauge);
     }
 
@@ -366,12 +363,19 @@ abstract contract ERC20Gauges is ERC20, Auth {
 
     /// @notice set the new max gauges. Requires auth by `authority`.
     function setMaxGauges(uint256 newMax) external requiresAuth {
-        if (newMax < _gauges.length()) revert MaxGaugeError();
-
         uint256 oldMax = maxGauges;
         maxGauges = newMax;
 
         emit MaxGaugesUpdate(oldMax, newMax);
+    }
+
+    /// @notice set the canContractExceedMax flag for an account.
+    function setContractExceedMax(address account, bool canExceedMax) external requiresAuth {
+        if(canExceedMax && account.code.length == 0) revert NonContractError(); // can only approve contracts
+        
+        canContractExceedMax[account] = canExceedMax;
+
+        emit CanContractExceedMaxUpdate(account, canExceedMax);
     }
 
     /*///////////////////////////////////////////////////////////////
@@ -411,8 +415,8 @@ abstract contract ERC20Gauges is ERC20, Auth {
         // cache total for batch updates
         uint112 totalFreed;
 
-        // Loop through all live gauges
-        address[] memory gaugeList = _gauges.values();
+        // Loop through all user gauges, live and deprecated
+        address[] memory gaugeList = _userGauges[user].values();
 
         // Free gauges until through entire list or under weight
         uint256 size = gaugeList.length;
@@ -420,18 +424,15 @@ abstract contract ERC20Gauges is ERC20, Auth {
             address gauge = gaugeList[i];
             uint112 userGaugeWeight = getUserGaugeWeight[user][gauge];
             if (userGaugeWeight != 0) {
-                totalFreed += userGaugeWeight;
+                // If the gauge is live (not deprecated), include its weight in the total to remove
+                if (_gauges.contains(gauge)) {
+                    totalFreed += userGaugeWeight;
+                }
                 _decrementGaugeWeight(user, gauge, userGaugeWeight, currentCycle);
             }
         }
 
         getUserWeight[user] -= totalFreed;
         _writeGaugeWeight(_totalWeight, _subtract, totalFreed, currentCycle);
-
-        // If still not under weight, either user has deprecated weight OR weight > user balance.
-        if (userFreeWeight + totalFreed < weight) {
-            freeDeprecatedGauges(user, _deprecatedGauges.values());
-            assert(getUserWeight[user] == 0); // everything should be free now
-        }
     }
 }
