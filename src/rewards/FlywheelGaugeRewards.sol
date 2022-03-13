@@ -63,7 +63,7 @@ contract FlywheelGaugeRewards is Auth, IFlywheelRewards {
     }
 
     /// @notice mapping from gauges to queued rewards
-    mapping(ERC20 => QueuedRewards) public marketQueuedRewards;
+    mapping(ERC20 => QueuedRewards) public gaugeQueuedRewards;
 
     /// @notice the gauge token for determining gauge allocations of the rewards stream
     ERC20Gauges public immutable gaugeToken;
@@ -177,7 +177,7 @@ contract FlywheelGaugeRewards is Auth, IFlywheelRewards {
         for (uint256 i = 0; i < size; i++) {
             ERC20 gauge = ERC20(gauges[i]);
             
-            QueuedRewards memory queuedRewards = marketQueuedRewards[gauge];
+            QueuedRewards memory queuedRewards = gaugeQueuedRewards[gauge];
 
             // Cycle queue already started
             require(queuedRewards.storedCycle < currentCycle);
@@ -186,7 +186,7 @@ contract FlywheelGaugeRewards is Auth, IFlywheelRewards {
             uint112 completedRewards = queuedRewards.storedCycle == lastCycle ? queuedRewards.cycleRewards : 0;
             
             // SSTORE
-            marketQueuedRewards[gauge] = QueuedRewards({
+            gaugeQueuedRewards[gauge] = QueuedRewards({
                 priorCycleRewards: queuedRewards.priorCycleRewards + completedRewards,
                 cycleRewards: uint112(gaugeToken.calculateGaugeAllocation(address(gauge), totalQueuedForCycle)),
                 storedCycle: currentCycle
@@ -196,16 +196,16 @@ contract FlywheelGaugeRewards is Auth, IFlywheelRewards {
 
     /**
      @notice calculate and transfer accrued rewards to flywheel core
-     @param market the market to accrue rewards for
-     @param lastUpdatedTimestamp the last updated time for market
+     @param gauge the gauge to accrue rewards for
+     @param lastUpdatedTimestamp the last updated time for gauge
      @return accruedRewards the amount of reward tokens accrued.
 
      GAS: Average path includes 2 SLOAD, 1 warm SSTORE.
     */
-    function getAccruedRewards(ERC20 market, uint32 lastUpdatedTimestamp) external override returns (uint256 accruedRewards) {
+    function getAccruedRewards(ERC20 gauge, uint32 lastUpdatedTimestamp) external override returns (uint256 accruedRewards) {
         require(msg.sender == flywheel, "!flywheel");
 
-        QueuedRewards memory queuedRewards = marketQueuedRewards[market]; // SLOAD
+        QueuedRewards memory queuedRewards = gaugeQueuedRewards[gauge]; // SLOAD
 
         uint32 cycle = gaugeCycle;
         bool incompleteCycle = queuedRewards.storedCycle > cycle;
@@ -241,7 +241,7 @@ contract FlywheelGaugeRewards is Auth, IFlywheelRewards {
         }
 
         // single SSTORE
-        marketQueuedRewards[market] = QueuedRewards({
+        gaugeQueuedRewards[gauge] = QueuedRewards({
             priorCycleRewards: 0,
             cycleRewards: cycleRewardsNext,
             storedCycle: queuedRewards.storedCycle
