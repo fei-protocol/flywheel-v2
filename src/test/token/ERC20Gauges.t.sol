@@ -136,13 +136,17 @@ contract ERC20GaugesTest is DSTestPlus {
         require(token.incrementGauge(gauge1, 1e18) == 1e18);
         require(token.incrementGauge(gauge2, 1e18) == 2e18);
 
-        hevm.warp(3600); // warp 1 hour
+        hevm.warp(3600); // warp 1 hour to store changes
         require(token.calculateGaugeAllocation(gauge1, 100e18) == 50e18);
         require(token.calculateGaugeAllocation(gauge2, 100e18) == 50e18);
 
         require(token.incrementGauge(gauge2, 2e18) == 4e18);
 
-        hevm.warp(7200); // warp another hour
+        // ensure updates don't propagate until stored
+        require(token.calculateGaugeAllocation(gauge1, 100e18) == 50e18);
+        require(token.calculateGaugeAllocation(gauge2, 100e18) == 50e18);
+
+        hevm.warp(7200); // warp another hour to store changes again
         require(token.calculateGaugeAllocation(gauge1, 100e18) == 25e18);
         require(token.calculateGaugeAllocation(gauge2, 100e18) == 75e18);
     }
@@ -184,6 +188,62 @@ contract ERC20GaugesTest is DSTestPlus {
         require(token.getGaugeWeight(gauge2) == 5e18);
         require(token.totalWeight() == 10e18);
     }   
+
+    /// @notice test incrementing and make sure weights are stored
+    function testIncrementWithStorage() public {
+        token.setMaxGauges(2);
+        token.addGauge(gauge1);
+        token.addGauge(gauge2);
+
+        // gauge1,user1 +1
+        require(token.incrementGauge(gauge1, 1e18) == 1e18);
+        require(token.getUserGaugeWeight(address(this), gauge1) == 1e18);
+        require(token.getUserWeight(address(this)) == 1e18);
+        require(token.getGaugeWeight(gauge1) == 1e18);
+        require(token.totalWeight() == 1e18);
+
+        require(token.getStoredGaugeWeight(gauge1) == 0);
+        require(token.storedTotalWeight() == 0);
+
+        hevm.warp(block.timestamp + 3600); // warp one cycle
+
+        require(token.getStoredGaugeWeight(gauge1) == 1e18);
+        require(token.storedTotalWeight() == 1e18);
+
+        // gauge2,user1 +2
+        require(token.incrementGauge(gauge2, 2e18) == 3e18);
+        require(token.getUserGaugeWeight(address(this), gauge2) == 2e18);
+        require(token.getUserWeight(address(this)) == 3e18);
+        require(token.getGaugeWeight(gauge2) == 2e18);
+        require(token.totalWeight() == 3e18);
+
+        require(token.getStoredGaugeWeight(gauge2) == 0);
+        require(token.storedTotalWeight() == 1e18);
+
+        hevm.warp(block.timestamp + 1800); // warp half cycle
+
+        require(token.getStoredGaugeWeight(gauge2) == 0);
+        require(token.storedTotalWeight() == 1e18);
+
+        // gauge1,user1 +4
+        require(token.incrementGauge(gauge1, 4e18) == 7e18);
+        require(token.getUserGaugeWeight(address(this), gauge1) == 5e18);
+        require(token.getUserWeight(address(this)) == 7e18);
+        require(token.getGaugeWeight(gauge1) == 5e18);
+        require(token.totalWeight() == 7e18);
+
+        hevm.warp(block.timestamp + 1800); // warp half cycle
+
+        require(token.getStoredGaugeWeight(gauge1) == 5e18);
+        require(token.getStoredGaugeWeight(gauge2) == 2e18);
+        require(token.storedTotalWeight() == 7e18);
+
+        hevm.warp(block.timestamp + 3600); // warp full cycle
+
+        require(token.getStoredGaugeWeight(gauge1) == 5e18);
+        require(token.getStoredGaugeWeight(gauge2) == 2e18);
+        require(token.storedTotalWeight() == 7e18);
+    }
 
     function testIncrementOnDeprecated() public {
         token.setMaxGauges(2);
@@ -296,6 +356,43 @@ contract ERC20GaugesTest is DSTestPlus {
         require(token.getGaugeWeight(gauge1) == 0);
         require(token.totalWeight() == 0);
     }   
+
+    /// @notice test decrement twice, 2 tokens each after incrementing by 4.
+    function testDecrementWithStorage() public {
+        token.setMaxGauges(2);
+        token.addGauge(gauge1);
+        token.addGauge(gauge2);
+
+        require(token.incrementGauge(gauge1, 4e18) == 4e18);
+
+        require(token.decrementGauge(gauge1, 2e18) == 2e18);
+        require(token.getUserGaugeWeight(address(this), gauge1) == 2e18);
+        require(token.getUserWeight(address(this)) == 2e18);
+        require(token.getGaugeWeight(gauge1) == 2e18);
+        require(token.totalWeight() == 2e18);
+
+        require(token.getStoredGaugeWeight(gauge1) == 0);
+        require(token.storedTotalWeight() == 0);
+
+        hevm.warp(block.timestamp + 3600); // warp full cycle
+
+        require(token.getStoredGaugeWeight(gauge1) == 2e18);
+        require(token.storedTotalWeight() == 2e18);
+
+        require(token.decrementGauge(gauge1, 2e18) == 0);
+        require(token.getUserGaugeWeight(address(this), gauge1) == 0);
+        require(token.getUserWeight(address(this)) == 0);
+        require(token.getGaugeWeight(gauge1) == 0);
+        require(token.totalWeight() == 0);
+
+        require(token.getStoredGaugeWeight(gauge1) == 2e18);
+        require(token.storedTotalWeight() == 2e18);
+
+        hevm.warp(block.timestamp + 3600); // warp full cycle
+
+        require(token.getStoredGaugeWeight(gauge1) == 0);
+        require(token.storedTotalWeight() == 0);
+    }
 
     function testDecrementOverWeight() public {
         token.setMaxGauges(2);
