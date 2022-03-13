@@ -24,13 +24,6 @@ contract ERC20GaugesTest is DSTestPlus {
         require(token.maxGauges() == 2);
     }
 
-    function testSetMaxUnder() public {
-        token.setMaxGauges(2);
-        token.addGauge(gauge1);
-        hevm.expectRevert(abi.encodeWithSignature("MaxGaugeError()"));
-        token.setMaxGauges(0);
-    }
-
     function testSetMaxGaugesNonOwner() public {
         hevm.prank(address(1));
         hevm.expectRevert(bytes("UNAUTHORIZED"));
@@ -69,13 +62,6 @@ contract ERC20GaugesTest is DSTestPlus {
         token.addGauge(gauge1);
         hevm.expectRevert(abi.encodeWithSignature("InvalidGaugeError()"));
         token.addGauge(gauge1);
-    }
-
-    function testAddGaugeOverMax() public {
-        token.setMaxGauges(1);
-        token.addGauge(gauge1);
-        hevm.expectRevert(abi.encodeWithSignature("MaxGaugeError()"));
-        token.addGauge(gauge2);
     }
 
     function testAddGaugeNonOwner() public {
@@ -384,56 +370,6 @@ contract ERC20GaugesTest is DSTestPlus {
         token.decrementGauges(gaugeList, new uint112[](0));    
     }
 
-    function testFreeDeprecated() public {
-        token.setMaxGauges(2);
-        token.addGauge(gauge1);
-        token.addGauge(gauge2);
-
-        address[] memory gaugeList = new address[](2);
-        uint112[] memory weights = new uint112[](2);
-        gaugeList[0] = gauge2;
-        gaugeList[1] = gauge1;
-        weights[0] = 1e18;
-        weights[1] = 2e18;
-
-        require(token.incrementGauges(gaugeList, weights) == 3e18);    
-        
-        token.removeGauge(gauge1);
-        token.removeGauge(gauge2);
-
-        require(token.totalWeight() == 0);
-
-        hevm.startPrank(address(1));
-        token.freeDeprecatedGauges(address(this), gaugeList);
-
-        require(token.getUserGaugeWeight(address(this), gauge2) == 0);
-        require(token.getGaugeWeight(gauge2) == 0);
-        require(token.getUserGaugeWeight(address(this), gauge1) == 0);
-        require(token.getUserWeight(address(this)) == 0);
-        require(token.getGaugeWeight(gauge1) == 0); 
-    }
-
-    function testFreeDeprecatedIfLive() public {
-        token.setMaxGauges(2);
-        token.addGauge(gauge1);
-        token.addGauge(gauge2);
-
-        address[] memory gaugeList = new address[](2);
-        uint112[] memory weights = new uint112[](2);
-        gaugeList[0] = gauge2;
-        gaugeList[1] = gauge1;
-        weights[0] = 1e18;
-        weights[1] = 2e18;
-
-        require(token.incrementGauges(gaugeList, weights) == 3e18);    
-        
-        token.removeGauge(gauge1);
-
-        hevm.startPrank(address(1));
-        hevm.expectRevert(abi.encodeWithSignature("InvalidGaugeError()"));
-        token.freeDeprecatedGauges(address(this), gaugeList); 
-    }
-
     /*///////////////////////////////////////////////////////////////
                             TEST ERC20 LOGIC
     //////////////////////////////////////////////////////////////*/
@@ -490,30 +426,6 @@ contract ERC20GaugesTest is DSTestPlus {
         token.approve(address(1), 100e18);
         hevm.prank(address(1));
         token.transferFrom(address(this), address(1), 90e18);
-
-        require(token.userUnusedWeight(address(this)) == 10e18);
-
-        require(token.getUserGaugeWeight(address(this), gauge1) == 0);
-        require(token.getUserWeight(address(this)) == 0);
-        require(token.getGaugeWeight(gauge1) == 0);
-        require(token.getUserGaugeWeight(address(this), gauge2) == 0);
-        require(token.getGaugeWeight(gauge2) == 0);
-        require(token.totalWeight() == 0);
-    }
-
-    function testDecrementUntilFreeDeprecated() public {
-        token.setMaxGauges(2);
-        token.addGauge(gauge1);
-        token.addGauge(gauge2);
-
-        require(token.incrementGauge(gauge1, 10e18) == 10e18);
-        require(token.incrementGauge(gauge2, 20e18) == 30e18);
-
-        token.removeGauge(gauge2);
-
-        require(token.userUnusedWeight(address(this)) == 70e18);
-
-        token.burn(address(this), 90e18);
 
         require(token.userUnusedWeight(address(this)) == 10e18);
 
