@@ -478,7 +478,8 @@ abstract contract ERC20Gauges is ERC20, Auth {
 
         uint32 currentCycle = getCurrentCycle();
 
-        // cache total for batch updates
+        // cache totals for batch updates
+        uint112 userFreed;
         uint112 totalFreed;
 
         // Loop through all user gauges, live and deprecated
@@ -494,11 +495,12 @@ abstract contract ERC20Gauges is ERC20, Auth {
                 if (_gauges.contains(gauge)) {
                     totalFreed += userGaugeWeight;
                 }
+                userFreed += userGaugeWeight;
                 _decrementGaugeWeight(user, gauge, userGaugeWeight, currentCycle);
             }
         }
 
-        getUserWeight[user] -= totalFreed;
+        getUserWeight[user] -= userFreed;
         _writeGaugeWeight(_totalWeight, _subtract, totalFreed, currentCycle);
     }
 }
