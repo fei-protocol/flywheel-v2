@@ -60,7 +60,7 @@ abstract contract ERC20Gauges is ERC20, Auth {
 
     event MaxGaugesUpdate(uint256 oldMaxGauges, uint256 newMaxGauges);
 
-    event CanContractExceedMaxUpdate(address indexed account, bool canContractExceedMax);
+    event CanContractExceedMaxGaugesUpdate(address indexed account, bool canContractExceedMaxGauges);
 
     /*///////////////////////////////////////////////////////////////
                         GAUGE STATE
@@ -79,7 +79,7 @@ abstract contract ERC20Gauges is ERC20, Auth {
     uint256 public maxGauges;
 
     /// @notice an approve list for contracts to go above the max gauge limit.
-    mapping(address => bool) public canContractExceedMax;
+    mapping(address => bool) public canContractExceedMaxGauges;
 
     /// @notice a mapping from users to gauges to a user's allocated weight to that gauge
     mapping(address => mapping(address => uint112)) public getUserGaugeWeight;
@@ -244,7 +244,7 @@ abstract contract ERC20Gauges is ERC20, Auth {
         if (!_gauges.contains(gauge)) revert InvalidGaugeError();
         
         bool added = _userGauges[user].add(gauge); // idempotent add
-        if (added && _userGauges[user].length() > maxGauges && !canContractExceedMax[user]) revert MaxGaugeError();
+        if (added && _userGauges[user].length() > maxGauges && !canContractExceedMaxGauges[user]) revert MaxGaugeError();
 
         getUserGaugeWeight[user][gauge] += weight;
 
@@ -435,13 +435,13 @@ abstract contract ERC20Gauges is ERC20, Auth {
         emit MaxGaugesUpdate(oldMax, newMax);
     }
 
-    /// @notice set the canContractExceedMax flag for an account.
-    function setContractExceedMax(address account, bool canExceedMax) external requiresAuth {
+    /// @notice set the canContractExceedMaxGauges flag for an account.
+    function setContractExceedMaxGauges(address account, bool canExceedMax) external requiresAuth {
         if(canExceedMax && account.code.length == 0) revert NonContractError(); // can only approve contracts
         
-        canContractExceedMax[account] = canExceedMax;
+        canContractExceedMaxGauges[account] = canExceedMax;
 
-        emit CanContractExceedMaxUpdate(account, canExceedMax);
+        emit CanContractExceedMaxGaugesUpdate(account, canExceedMax);
     }
 
     /*///////////////////////////////////////////////////////////////

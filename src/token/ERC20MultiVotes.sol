@@ -100,8 +100,17 @@ abstract contract ERC20MultiVotes is ERC20, Auth {
     /// @notice emitted when updating the maximum amount of delegates per user
     event MaxDelegatesUpdate(uint256 oldMaxDelegates, uint256 newMaxDelegates);
 
+    /// @notice emitted when updating the canContractExceedMaxDelegates flag for an account
+    event CanContractExceedMaxDelegatesUpdate(address indexed account, bool canContractExceedMaxDelegates);
+
+    /// @notice thrown when attempting to approve an EOA to exceed max delegations
+    error NonContractError();
+
     /// @notice the maximum amount of delegates for a user at a given time
     uint256 public maxDelegates;
+
+    /// @notice an approve list for contracts to go above the max delegate limit.
+    mapping(address => bool) public canContractExceedMaxDelegates;
 
     /// @notice set the new max delegates per user. Requires auth by `authority`.
     function setMaxDelegates(uint256 newMax) external requiresAuth {
@@ -109,6 +118,15 @@ abstract contract ERC20MultiVotes is ERC20, Auth {
         maxDelegates = newMax;
 
         emit MaxDelegatesUpdate(oldMax, newMax);
+    }
+
+    /// @notice set the canContractExceedMaxDelegates flag for an account.
+    function setContractExceedMaxDelegates(address account, bool canExceedMax) external requiresAuth {
+        if(canExceedMax && account.code.length == 0) revert NonContractError(); // can only approve contracts
+        
+        canContractExceedMaxDelegates[account] = canExceedMax;
+
+        emit CanContractExceedMaxDelegatesUpdate(account, canExceedMax);
     }
 
     /*///////////////////////////////////////////////////////////////
@@ -201,8 +219,8 @@ abstract contract ERC20MultiVotes is ERC20, Auth {
         if (free < amount) revert DelegationError();
 
         bool newDelegate = _delegates[delegator].add(delegatee); // idempotent add
-        if (newDelegate && delegateCount(delegator) > maxDelegates) {
-            // if new delegate and exceeds max, revert
+        if (newDelegate && delegateCount(delegator) > maxDelegates && !canContractExceedMaxDelegates[delegator]) {
+            // if new delegate and exceeds max and not approved to exceed, revert
             revert DelegationError();
         }
 

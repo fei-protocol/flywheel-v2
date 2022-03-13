@@ -31,19 +31,19 @@ contract ERC20GaugesTest is DSTestPlus {
     }
 
     function testCanContractExceedMax() public {
-        token.setContractExceedMax(address(this), true);
-        require(token.canContractExceedMax(address(this)));
+        token.setContractExceedMaxGauges(address(this), true);
+        require(token.canContractExceedMaxGauges(address(this)));
     }
 
     function testCanContractExceedMaxNonOwner() public {
         hevm.prank(address(1));
         hevm.expectRevert(bytes("UNAUTHORIZED"));
-        token.setContractExceedMax(address(this), true);
+        token.setContractExceedMaxGauges(address(this), true);
     }
 
     function testCanContractExceedMaxNonContract() public {
         hevm.expectRevert(abi.encodeWithSignature("NonContractError()"));
-        token.setContractExceedMax(address(1), true);
+        token.setContractExceedMaxGauges(address(1), true);
     }
 
     function testAddGauge() public {
@@ -238,7 +238,7 @@ contract ERC20GaugesTest is DSTestPlus {
         token.addGauge(gauge2);
 
         token.incrementGauge(gauge1, 1e18);
-        token.setContractExceedMax(address(this), true);
+        token.setContractExceedMaxGauges(address(this), true);
         token.incrementGauge(gauge2, 1e18);
 
         require(token.getUserGaugeWeight(address(this), gauge1) == 1e18);

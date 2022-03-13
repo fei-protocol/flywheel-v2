@@ -25,10 +25,26 @@ contract ERC20MultiVotesTest is DSTestPlus {
         require(token.maxDelegates() == 5);
     }
 
-    function testSetMaxGaugesNonOwner() public {
+    function testSetMaxDelegatesNonOwner() public {
         hevm.prank(address(1));
         hevm.expectRevert(bytes("UNAUTHORIZED"));
         token.setMaxDelegates(7);
+    }
+
+    function testCanContractExceedMax() public {
+        token.setContractExceedMaxDelegates(address(this), true);
+        require(token.canContractExceedMaxDelegates(address(this)));
+    }
+
+    function testCanContractExceedMaxNonOwner() public {
+        hevm.prank(address(1));
+        hevm.expectRevert(bytes("UNAUTHORIZED"));
+        token.setContractExceedMaxDelegates(address(this), true);
+    }
+
+    function testCanContractExceedMaxNonContract() public {
+        hevm.expectRevert(abi.encodeWithSignature("NonContractError()"));
+        token.setContractExceedMaxDelegates(address(1), true);
     }
 
     /*///////////////////////////////////////////////////////////////
@@ -80,6 +96,17 @@ contract ERC20MultiVotesTest is DSTestPlus {
         token.delegate(delegate2, 1e18);
         hevm.expectRevert(abi.encodeWithSignature("DelegationError()"));   
         token.delegate(address(this), 1e18);
+    }
+
+    function testDelegateOverMaxDelegatesApproved() public {
+        token.setContractExceedMaxDelegates(address(this), true);
+        token.delegate(delegate1, 50e18);
+        token.delegate(delegate2, 1e18);
+        token.delegate(address(this), 1e18);
+
+        require(token.delegateCount(address(this)) == 3);
+        require(token.delegateCount(address(this)) > token.maxDelegates());
+        require(token.userDelegatedVotes(address(this)) == 52e18);
     }
 
     /// @notice test undelegate twice, 2 tokens each after delegating by 4.
