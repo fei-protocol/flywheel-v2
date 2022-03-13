@@ -30,6 +30,7 @@ contract xTRIBE is ERC20MultiVotes, ERC20Gauges, xERC4626 {
     constructor(ERC20 _tribe, address _owner, Authority _authority, uint32 _rewardsCycleLength) 
         Auth(_owner, _authority) 
         xERC4626(_rewardsCycleLength) 
+        ERC20Gauges(_rewardsCycleLength)
         ERC4626(_tribe, "xTribe: Gov + Yield", "xTRIBE")
     {}
 
