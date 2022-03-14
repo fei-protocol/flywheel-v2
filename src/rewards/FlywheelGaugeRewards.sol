@@ -52,6 +52,9 @@ contract FlywheelGaugeRewards is Auth, IFlywheelRewards {
     /// @notice the length of a rewards cycle
     uint32 public immutable gaugeCycleLength;
 
+    /// @notice the start of the next cycle being partially queued
+    uint32 internal nextCycle;
+
     // rewards that made it into a partial queue but didn't get completed
     uint112 internal nextCycleQueuedRewards;
 
@@ -100,7 +103,6 @@ contract FlywheelGaugeRewards is Auth, IFlywheelRewards {
     /**
         @notice Iterates over all live gauges and queues up the rewards for the cycle
         @return totalQueuedForCycle the max amount of rewards to be distributed over the cycle
-        @dev critical that there is no pagination to prevent double spending. All gauges must be synced atomically, unless the gaugeToken checkpoints rewards.
 
         GAS: Average path for `n` gauges - SLOAD * (n + 7) + SSTORE * (n + 1) + 1 token transfer
     */
@@ -131,49 +133,52 @@ contract FlywheelGaugeRewards is Auth, IFlywheelRewards {
         paginationOffset = 0;
     }
 
-    // /**
-    //     @notice Iterates over all live gauges and queues up the rewards for the cycle
-    //     @return totalQueuedForCycle the max amount of rewards to be distributed over the cycle
-    //     @dev critical that there is no pagination to prevent double spending. All gauges must be synced atomically, unless the gaugeToken checkpoints rewards.
+    /**
+        @notice Iterates over all live gauges and queues up the rewards for the cycle
+    */
+    function queueRewardsForCyclePaginated(uint256 numRewards) external requiresAuth {
+        // next cycle is always the next even divisor of the cycle length above current block timestamp.
+        uint32 currentCycle = uint32(block.timestamp) / gaugeCycleLength * gaugeCycleLength;
+        uint32 lastCycle = gaugeCycle;
 
-    //     GAS: Average path for `n` gauges - SLOAD * (n + 7) + SSTORE * (n + 1) + 1 token transfer
-    // */
-    // function queueRewardsForCyclePaginated(uint256 numRewards) external requiresAuth {
-    //     // next cycle is always the next even divisor of the cycle length above current block timestamp.
-    //     uint32 currentCycle = uint32(block.timestamp) / gaugeCycleLength * gaugeCycleLength;
-    //     uint32 lastCycle = gaugeCycle;  // SLOAD
+        // ensure new cycle has begun
+        if (currentCycle <= lastCycle) revert CycleError();
 
-    //     // ensure new cycle has begun
-    //     require(currentCycle > lastCycle);
+        if (currentCycle > nextCycle) {
+            nextCycle = currentCycle;
+            paginationOffset = 0;
+        }
         
-    //     gaugeCycle = currentCycle; // SSTORE
+        uint32 offset = paginationOffset;
 
-    //     uint112 queued = nextCycleQueuedRewards;
-    //     if (paginationOffset == 0) {
-    //         // queue the rewards stream and sanity check the tokens were received
-    //         uint256 balanceBefore = rewardToken.balanceOf(address(this));
-    //         nextCycleQueuedRewards = rewardsStream.getRewards();
-    //         require(rewardToken.balanceOf(address(this)) - balanceBefore >= queued);
-    //     }
+        // important to only calculate the reward amount once to prevent each page from having a different reward amount
+        if (offset == 0) {
+            // queue the rewards stream and sanity check the tokens were received
+            uint256 balanceBefore = rewardToken.balanceOf(address(this));
+            uint112 newRewards = uint112(rewardsStream.getRewards());
+            require(rewardToken.balanceOf(address(this)) - balanceBefore >= newRewards);
+            nextCycleQueuedRewards += newRewards; // in case a previous incomplete cycle had rewards, add on
+        }
 
+        uint112 queued = nextCycleQueuedRewards;
 
+        uint remaining = gaugeToken.numGauges() - offset;
 
-    //     nextCycleQueuedRewards += queued;
+        // Important to do non-strict inequality to include the case where the numRewards is just enough to complete the cycle
+        if (remaining <= numRewards) {
+            numRewards = remaining;
+            gaugeCycle = currentCycle;
+            nextCycleQueuedRewards = 0;
+            paginationOffset = 0;
+        } else {
+            paginationOffset = offset + uint32(numRewards);
+        }
 
-    //     uint remaining = gaugeToken.numGauges() - paginationOffset;
+        // iterate over all gauges and update the rewards allocations
+        address[] memory gauges = gaugeToken.gauges(offset, numRewards);
 
-    //     if (remainging > numRewards) {
-    //         remaining = numRewards;
-    //     }
-
-    //     // iterate over all gauges and update the rewards allocations
-    //     address[] memory gauges = gaugeToken.gauges(paginationOffset, remaining); // n * SLOAD
-
-    //     _queueRewards(gauges, currentCycle, lastCycle, totalQueuedForCycle);
-
-    //     nextCycleQueuedRewards = 0;
-    //     paginationOffset = 0;
-    // }
+        _queueRewards(gauges, currentCycle, lastCycle, queued);
+    }
 
     function _queueRewards(address[] memory gauges, uint32 currentCycle, uint32 lastCycle, uint256 totalQueuedForCycle) internal {
         uint256 size = gauges.length;
