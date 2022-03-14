@@ -47,21 +47,20 @@ contract FlywheelDynamicRewardsCycle is IFlywheelRewards {
      @param market the market to accrue rewards for
      @return amount the amount of tokens accrued and transferred
      */
-    function getAccruedRewards(ERC20 market, uint32) external override returns (uint256 amount) {
+    function getAccruedRewards(ERC20 market, uint32 lastUpdatedTimestamp) external override returns (uint256 amount) {
         require(msg.sender == flywheel, "!flywheel");
-        uint32 timestamp = block.timestamp.safeCastTo32();
 
         uint balance = rewardToken.balanceOf(address(market));
         // if cycle has ended, transfer all available and reset cycle
-        if (timestamp >= rewardsCycleEnd) {
+        if (lastUpdatedTimestamp >= rewardsCycleEnd) {
             uint256 lastRewardRemaining = lastRewardTotal - lastRewardTransferred;
             uint256 nextRewards = balance - lastRewardRemaining;
 
             // safeCast check.
             require(nextRewards <= type(uint160).max);
             
-            lastSync = timestamp;
-            rewardsCycleEnd = (timestamp + rewardsCycleLength) / rewardsCycleLength * rewardsCycleLength;
+            lastSync = lastUpdatedTimestamp;
+            rewardsCycleEnd = (lastUpdatedTimestamp + rewardsCycleLength) / rewardsCycleLength * rewardsCycleLength;
             rewardToken.transferFrom(address(market), flywheel, amount = lastRewardRemaining);
             lastRewardTotal = nextRewards;
             lastRewardTransferred = 0;
@@ -69,7 +68,7 @@ contract FlywheelDynamicRewardsCycle is IFlywheelRewards {
         // increase distribution linearly from lastSync until cycle end
         else {
             uint256 lastRewardTransferred_ = lastRewardTransferred;
-            uint256 unlockedRewards = lastRewardTotal * (timestamp - lastSync) / (rewardsCycleEnd - lastSync);
+            uint256 unlockedRewards = lastRewardTotal * (lastUpdatedTimestamp - lastSync) / (rewardsCycleEnd - lastSync);
             lastRewardTransferred += (unlockedRewards - lastRewardTransferred_);
             rewardToken.transferFrom(address(market), flywheel, amount = (unlockedRewards - lastRewardTransferred));
         }
