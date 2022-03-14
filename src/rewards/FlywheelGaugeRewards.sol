@@ -35,6 +35,9 @@ interface IRewardsStream {
 contract FlywheelGaugeRewards is Auth, IFlywheelRewards {
     using SafeTransferLib for ERC20;
 
+    error CycleError();
+    error EmptyGaugesError();
+
     // TODO add events
 
     /// @notice the flywheel core contract
@@ -107,7 +110,7 @@ contract FlywheelGaugeRewards is Auth, IFlywheelRewards {
         uint32 lastCycle = gaugeCycle;  // SLOAD
 
         // ensure new cycle has begun
-        require(currentCycle > lastCycle);
+        if (currentCycle <= lastCycle) revert CycleError();
         
         gaugeCycle = currentCycle; // SSTORE
 
@@ -174,6 +177,9 @@ contract FlywheelGaugeRewards is Auth, IFlywheelRewards {
 
     function _queueRewards(address[] memory gauges, uint32 currentCycle, uint32 lastCycle, uint256 totalQueuedForCycle) internal {
         uint256 size = gauges.length;
+
+        if (size == 0) revert EmptyGaugesError();
+
         for (uint256 i = 0; i < size; i++) {
             ERC20 gauge = ERC20(gauges[i]);
             
@@ -181,7 +187,7 @@ contract FlywheelGaugeRewards is Auth, IFlywheelRewards {
 
             // Cycle queue already started
             require(queuedRewards.storedCycle < currentCycle);
-            assert(queuedRewards.storedCycle >= lastCycle);
+            assert(queuedRewards.storedCycle == 0 || queuedRewards.storedCycle >= lastCycle);
 
             uint112 completedRewards = queuedRewards.storedCycle == lastCycle ? queuedRewards.cycleRewards : 0;
             
@@ -209,12 +215,15 @@ contract FlywheelGaugeRewards is Auth, IFlywheelRewards {
 
         uint32 cycle = gaugeCycle;
         bool incompleteCycle = queuedRewards.storedCycle > cycle;
-        assert(queuedRewards.storedCycle >= cycle);
 
         // no rewards
         if (queuedRewards.priorCycleRewards == 0 && (queuedRewards.cycleRewards == 0 || incompleteCycle)) {
             return 0;
         }
+
+        // if stored cycle != 0 it must be >= the last queued cycle
+        assert(queuedRewards.storedCycle >= cycle);
+
 
         uint32 cycleEnd = cycle + gaugeCycleLength;
 
@@ -229,9 +238,11 @@ contract FlywheelGaugeRewards is Auth, IFlywheelRewards {
             accruedRewards += cycleRewardsNext;
             cycleRewardsNext = 0;
         } else {
+            uint32 beginning = lastUpdatedTimestamp > cycle ? lastUpdatedTimestamp : cycle;
+
             // otherwise, return proportion of remaining rewards in cycle
-            uint32 elapsed = uint32(block.timestamp) - lastUpdatedTimestamp;
-            uint32 remaining = cycleEnd - lastUpdatedTimestamp;
+            uint32 elapsed = uint32(block.timestamp) - beginning;
+            uint32 remaining = cycleEnd - beginning;
                 
             uint112 currentAccrued = queuedRewards.cycleRewards * elapsed / remaining;
 
