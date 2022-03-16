@@ -3,7 +3,6 @@ pragma solidity 0.8.10;
 
 import {SafeTransferLib, ERC20} from "solmate/utils/SafeTransferLib.sol";
 import {IFlywheelRewards} from "../interfaces/IFlywheelRewards.sol";
-import "solmate/utils/SafeCastLib.sol";
 
 /** 
  @title Flywheel Dynamic Reward Stream Cyclic
@@ -11,7 +10,6 @@ import "solmate/utils/SafeCastLib.sol";
 */ 
 contract FlywheelDynamicRewardsCycle is IFlywheelRewards {
     using SafeTransferLib for ERC20;
-    using SafeCastLib for *;
 
     /// @notice the reward token paid
     ERC20 public immutable rewardToken;
