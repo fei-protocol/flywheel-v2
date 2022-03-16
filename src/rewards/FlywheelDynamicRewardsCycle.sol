@@ -22,17 +22,13 @@ contract FlywheelDynamicRewardsCycle is IFlywheelRewards {
     /// @notice the length of a rewards cycle
     uint32 public immutable rewardsCycleLength;
 
-    /// @notice the end of the rewards cycle for a market
-    mapping(ERC20 => uint32) public rewardsCycleEnd;
-
-    /// @notice the delayed start of the current cycle for a market
-    mapping(ERC20 => uint32) public lastSync;
-
-    /// @notice the total amount of rewards to be distributed in a given cycle for a market
-    mapping(ERC20 => uint256) public lastRewardTotal;
-
-    /// @notice tracks the amount of rewards accrued in a given cycle
-    mapping(ERC20 => uint256) public totalRewardsAccrued;
+    struct RewardsCycle {
+        uint32 lastSync;
+        uint32 rewardsCycleEnd;
+        uint192 lastReward;
+    }
+    
+    mapping(ERC20 => RewardsCycle) public rewardsCycle;
 
     constructor(ERC20 _rewardToken, address _flywheel, uint32 _rewardsCycleLength) {
         rewardToken = _rewardToken;
@@ -47,26 +43,23 @@ contract FlywheelDynamicRewardsCycle is IFlywheelRewards {
      */
     function getAccruedRewards(ERC20 market, uint32 lastUpdatedTimestamp) external override returns (uint256 amount) {
         require(msg.sender == flywheel, "!flywheel");
-        // seed initial rewardsCycleEnd
-        if(rewardsCycleEnd[market] == 0) rewardsCycleEnd[market] = lastUpdatedTimestamp / rewardsCycleLength * rewardsCycleLength;
-
+        RewardsCycle memory cycle = rewardsCycle[market];
+        
         // if cycle has ended, reset cycle and transfer all available 
-        if (lastUpdatedTimestamp >= rewardsCycleEnd[market]) {
-            // accrue remaining rewards (skip init cycle)
-            if (lastRewardTotal[market] != 0) amount = lastRewardTotal[market] - totalRewardsAccrued[market];
+        if (block.timestamp >= cycle.rewardsCycleEnd) {
+            // accrue remaining rewards
+            amount = cycle.lastReward;
             // reset for next cycle
-            lastSync[market] = lastUpdatedTimestamp;
-            lastRewardTotal[market] = rewardToken.balanceOf(address(market));
-            rewardsCycleEnd[market] = (lastUpdatedTimestamp + rewardsCycleLength) / rewardsCycleLength * rewardsCycleLength;
-            
-            if(lastRewardTotal[market] > 0) rewardToken.transferFrom(address(market), flywheel, lastRewardTotal[market]);
-            totalRewardsAccrued[market] = 0;
+            rewardsCycle[market] = RewardsCycle ({
+                lastSync: uint32(block.timestamp),
+                rewardsCycleEnd: (uint32(block.timestamp) + rewardsCycleLength) / rewardsCycleLength * rewardsCycleLength,
+                lastReward: uint192(rewardToken.balanceOf(address(market)))
+            });
+            if(rewardsCycle[market].lastReward > 0) rewardToken.transferFrom(address(market), address(this), rewardsCycle[market].lastReward);
         }
         // increase distribution linearly from lastSync until cycle end
         else {
-            uint256 unlockedRewards = lastRewardTotal[market] * (lastUpdatedTimestamp - lastSync[market]) / (rewardsCycleEnd[market] - lastSync[market]);
-            amount = unlockedRewards - totalRewardsAccrued[market];
-            totalRewardsAccrued[market] = unlockedRewards;
+            amount = cycle.lastReward * (lastUpdatedTimestamp - cycle.lastSync) / (cycle.rewardsCycleEnd - cycle.lastSync);
         }
     }
 }
