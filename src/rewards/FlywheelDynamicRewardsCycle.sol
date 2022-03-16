@@ -47,7 +47,6 @@ contract FlywheelDynamicRewardsCycle is IFlywheelRewards {
         
         // if cycle has ended, reset cycle and transfer all available 
         if (block.timestamp >= cycle.rewardsCycleEnd) {
-            // accrue remaining rewards
             amount = cycle.lastReward;
             // reset for next cycle
             rewardsCycle[market] = RewardsCycle ({
