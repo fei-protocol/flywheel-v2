@@ -22,24 +22,22 @@ contract FlywheelDynamicRewardsCycle is IFlywheelRewards {
     /// @notice the length of a rewards cycle
     uint32 public immutable rewardsCycleLength;
 
-    /// @notice the end of the current cycle
-    uint32 public rewardsCycleEnd;
+    /// @notice the end of the rewards cycle for a market
+    mapping(ERC20 => uint32) public rewardsCycleEnd;
 
-    /// @notice the delayed start of the current cycle
-    uint32 public lastSync;
+    /// @notice the delayed start of the current cycle for a market
+    mapping(ERC20 => uint32) public lastSync;
 
-    /// @notice the total amount of rewards to be distributed in a given cycle
-    uint256 public lastRewardTotal;
+    /// @notice the total amount of rewards to be distributed in a given cycle for a market
+    mapping(ERC20 => uint256) public lastRewardTotal;
 
-    /// @notice the amount of rewards transferred in a given cycle
-    uint256 public lastRewardTransferred;
+    /// @notice tracks the amount of rewards accrued in a given cycle
+    mapping(ERC20 => uint256) public totalRewardsAccrued;
 
     constructor(ERC20 _rewardToken, address _flywheel, uint32 _rewardsCycleLength) {
         rewardToken = _rewardToken;
         flywheel = _flywheel;
         rewardsCycleLength = _rewardsCycleLength;
-        // seed initial rewardsCycleEnd
-        rewardsCycleEnd = uint32(block.timestamp) / rewardsCycleLength * rewardsCycleLength;
     }
 
     /**
@@ -49,28 +47,26 @@ contract FlywheelDynamicRewardsCycle is IFlywheelRewards {
      */
     function getAccruedRewards(ERC20 market, uint32 lastUpdatedTimestamp) external override returns (uint256 amount) {
         require(msg.sender == flywheel, "!flywheel");
+        // seed initial rewardsCycleEnd
+        if(rewardsCycleEnd[market] == 0) rewardsCycleEnd[market] = lastUpdatedTimestamp / rewardsCycleLength * rewardsCycleLength;
 
-        uint balance = rewardToken.balanceOf(address(market));
-        // if cycle has ended, transfer all available and reset cycle
-        if (lastUpdatedTimestamp >= rewardsCycleEnd) {
-            uint256 lastRewardRemaining = lastRewardTotal - lastRewardTransferred;
-            uint256 nextRewards = balance - lastRewardRemaining;
-
-            // safeCast check.
-            require(nextRewards <= type(uint160).max);
+        // if cycle has ended, reset cycle and transfer all available 
+        if (lastUpdatedTimestamp >= rewardsCycleEnd[market]) {
+            // accrue remaining rewards (skip init cycle)
+            if (lastRewardTotal[market] != 0) amount = lastRewardTotal[market] - totalRewardsAccrued[market];
+            // reset for next cycle
+            lastSync[market] = lastUpdatedTimestamp;
+            lastRewardTotal[market] = rewardToken.balanceOf(address(market));
+            rewardsCycleEnd[market] = (lastUpdatedTimestamp + rewardsCycleLength) / rewardsCycleLength * rewardsCycleLength;
             
-            lastSync = lastUpdatedTimestamp;
-            rewardsCycleEnd = (lastUpdatedTimestamp + rewardsCycleLength) / rewardsCycleLength * rewardsCycleLength;
-            rewardToken.transferFrom(address(market), flywheel, amount = lastRewardRemaining);
-            lastRewardTotal = nextRewards;
-            lastRewardTransferred = 0;
+            if(lastRewardTotal[market] > 0) rewardToken.transferFrom(address(market), flywheel, lastRewardTotal[market]);
+            totalRewardsAccrued[market] = 0;
         }
         // increase distribution linearly from lastSync until cycle end
         else {
-            uint256 lastRewardTransferred_ = lastRewardTransferred;
-            uint256 unlockedRewards = lastRewardTotal * (lastUpdatedTimestamp - lastSync) / (rewardsCycleEnd - lastSync);
-            lastRewardTransferred += (unlockedRewards - lastRewardTransferred_);
-            rewardToken.transferFrom(address(market), flywheel, amount = (unlockedRewards - lastRewardTransferred));
+            uint256 unlockedRewards = lastRewardTotal[market] * (lastUpdatedTimestamp - lastSync[market]) / (rewardsCycleEnd[market] - lastSync[market]);
+            amount = unlockedRewards - totalRewardsAccrued[market];
+            totalRewardsAccrued[market] = unlockedRewards;
         }
     }
 }
