@@ -49,7 +49,7 @@ contract FlywheelDynamicRewardsCycle is IFlywheelRewards {
             // reset for next cycle
             rewardsCycle[market] = RewardsCycle ({
                 lastSync: uint32(block.timestamp),
-                rewardsCycleEnd: (uint32(block.timestamp) + rewardsCycleLength) / rewardsCycleLength * rewardsCycleLength,
+                rewardsCycleEnd: uint32(block.timestamp) + rewardsCycleLength,
                 lastReward: uint192(rewardToken.balanceOf(address(market)))
             });
             if(rewardsCycle[market].lastReward > 0) rewardToken.transferFrom(address(market), address(this), rewardsCycle[market].lastReward);
