@@ -43,20 +43,21 @@ contract FlywheelDynamicRewardsCycle is IFlywheelRewards {
         require(msg.sender == flywheel, "!flywheel");
         RewardsCycle memory cycle = rewardsCycle[market];
         
+        uint32 latest = uint32(block.timestamp) >= cycle.rewardsCycleEnd ? cycle.rewardsCycleEnd : uint32(block.timestamp);
+        uint32 lastUpdated = lastUpdatedTimestamp <= cycle.lastSync ? cycle.lastSync : lastUpdatedTimestamp;
+        if (cycle.rewardsCycleEnd != 0) {
+            amount = cycle.lastReward * (latest - lastUpdated) / (cycle.rewardsCycleEnd - cycle.lastSync);
+            require(amount <= cycle.lastReward, "!amount");
+        }
         // if cycle has ended, reset cycle and transfer all available 
         if (block.timestamp >= cycle.rewardsCycleEnd) {
-            amount = cycle.lastReward;
             // reset for next cycle
             rewardsCycle[market] = RewardsCycle ({
                 lastSync: uint32(block.timestamp),
-                rewardsCycleEnd: uint32(block.timestamp) + rewardsCycleLength,
+                rewardsCycleEnd: (uint32(block.timestamp) + rewardsCycleLength) / rewardsCycleLength * rewardsCycleLength,
                 lastReward: uint192(rewardToken.balanceOf(address(market)))
             });
-            if(rewardsCycle[market].lastReward > 0) rewardToken.transferFrom(address(market), address(this), rewardsCycle[market].lastReward);
-        }
-        // increase distribution linearly from lastSync until cycle end
-        else {
-            amount = cycle.lastReward * (lastUpdatedTimestamp - cycle.lastSync) / (cycle.rewardsCycleEnd - cycle.lastSync);
+            if(rewardsCycle[market].lastReward > 0) rewardToken.transferFrom(address(market), flywheel, rewardsCycle[market].lastReward);
         }
     }
 }
