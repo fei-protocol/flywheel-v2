@@ -50,7 +50,7 @@ contract FlywheelIntegrationTest is DSTestPlus {
             Authority(address(0))
         );
 
-        rewards = new FlywheelStaticRewards(rewardToken, address(flywheel), address(this), Authority(address(0)));
+        rewards = new FlywheelStaticRewards(flywheel, address(this), Authority(address(0)));
 
         flywheel.setFlywheelRewards(rewards);
         

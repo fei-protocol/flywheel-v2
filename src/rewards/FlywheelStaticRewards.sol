@@ -2,23 +2,15 @@
 pragma solidity 0.8.10;
 
 import {Auth, Authority} from "solmate/auth/Auth.sol";
-import {SafeTransferLib, ERC20} from "solmate/utils/SafeTransferLib.sol";
-import {IFlywheelRewards} from "../interfaces/IFlywheelRewards.sol";
+import "./BaseFlywheelRewards.sol";
 
 /** 
  @title Flywheel Static Reward Stream
- @notice Determines rewards based on a fixed reward rate per second
+ @notice Determines rewards per strategy based on a fixed reward rate per second
 */ 
-contract FlywheelStaticRewards is Auth, IFlywheelRewards {
-    using SafeTransferLib for ERC20;
+contract FlywheelStaticRewards is Auth, BaseFlywheelRewards {
 
     event RewardsInfoUpdate(ERC20 indexed market, uint224 rewardsPerSecond, uint32 rewardsEndTimestamp);
-
-    /// @notice the reward token paid
-    ERC20 public immutable rewardToken;
-
-    /// @notice the flywheel core contract
-    address public immutable flywheel;
 
     struct RewardsInfo {
         /// @notice Rewards per second
@@ -33,15 +25,10 @@ contract FlywheelStaticRewards is Auth, IFlywheelRewards {
     mapping(ERC20 => RewardsInfo) public rewardsInfo;
 
     constructor(
-        ERC20 _rewardToken, 
-        address _flywheel, 
+        FlywheelCore _flywheel, 
         address _owner, 
         Authority _authority
-    ) Auth(_owner, _authority) {
-        rewardToken = _rewardToken;
-        flywheel = _flywheel;
-        rewardToken.safeApprove(flywheel, type(uint256).max);
-    }
+    ) Auth(_owner, _authority) BaseFlywheelRewards(_flywheel) {}
 
     /**
      @notice set rewards per second and rewards end time for Fei Rewards
@@ -59,9 +46,7 @@ contract FlywheelStaticRewards is Auth, IFlywheelRewards {
      @param lastUpdatedTimestamp the last updated time for market
      @return amount the amount of tokens accrued and transferred
      */
-    function getAccruedRewards(ERC20 market, uint32 lastUpdatedTimestamp) external view override returns (uint256 amount) {
-        require(msg.sender == flywheel, "!flywheel");
-
+    function getAccruedRewards(ERC20 market, uint32 lastUpdatedTimestamp) external view override onlyFlywheel returns (uint256 amount) {
         RewardsInfo memory rewards = rewardsInfo[market];
 
         uint256 elapsed;
