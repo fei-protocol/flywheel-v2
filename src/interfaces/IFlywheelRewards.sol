@@ -2,10 +2,11 @@
 pragma solidity 0.8.10;
 
 import {ERC20} from "solmate/tokens/ERC20.sol";
+import {FlywheelCore} from "../FlywheelCore.sol";
 
 /**
  @title Rewards Module for Flywheel
- @notice The rewards module is a minimal interface for determining the quantity of rewards accrued to a flywheel market.
+ @notice The rewards module is a minimal interface for determining the quantity of rewards accrued to a flywheel strategy.
 
  Different module strategies include:
   * a static reward rate per second
@@ -14,5 +15,9 @@ import {ERC20} from "solmate/tokens/ERC20.sol";
   * liquid governance reward delegation
  */
 interface IFlywheelRewards {
-    function getAccruedRewards(ERC20 market, uint32 lastUpdatedTimestamp) external returns (uint256 rewards);
+    function getAccruedRewards(ERC20 strategy, uint32 lastUpdatedTimestamp) external returns (uint256 rewards);
+
+    function flywheel() external view returns(FlywheelCore);
+
+    function rewardToken() external view returns(ERC20); 
 }

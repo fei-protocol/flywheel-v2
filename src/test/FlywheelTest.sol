@@ -32,7 +32,7 @@ contract FlywheelTest is DSTestPlus {
             Authority(address(0))
         );
 
-        rewards = new FlywheelDynamicRewards(rewardToken, address(flywheel));
+        rewards = new FlywheelDynamicRewards(flywheel);
 
         flywheel.setFlywheelRewards(rewards);
     }
@@ -220,7 +220,7 @@ contract FlywheelTest is DSTestPlus {
             Authority(address(0))
         );
 
-        rewards = new FlywheelDynamicRewards(rewardToken, address(flywheel));
+        rewards = new FlywheelDynamicRewards(flywheel);
 
         flywheel.setFlywheelRewards(rewards);
 
