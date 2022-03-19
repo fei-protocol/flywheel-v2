@@ -21,6 +21,8 @@ contract FlywheelStaticRewardsTest is DSTestPlus {
         market = new MockMarket();
 
         rewards = new FlywheelStaticRewards(FlywheelCore(address(this)), address(this), Authority(address(0)));
+
+
     }
 
     function testSetRewardsInfo() public {
