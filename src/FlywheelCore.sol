@@ -11,34 +11,20 @@ import {IFlywheelBooster} from "./interfaces/IFlywheelBooster.sol";
 /**
  @title Flywheel Core Incentives Manager
  @notice Flywheel is a general framework for managing token incentives.
-         It is comprised of the Core (this contract), Rewards module, and optional Booster module.
+         It takes reward streams to various *strategies* such as staking LP tokens and divides them among *users* of those strategies.
 
-         Core is responsible for maintaining reward accrual through reward indexes. 
-         It delegates the actual accrual logic to the Rewards Module.
+         The Core contract maintaings three important pieces of state:
+         * the rewards index which determines how many rewards are owed per token per strategy. User indexes track how far behind the strategy they are to lazily calculate all catch-up rewards.
+         * the accrued (unclaimed) rewards per user.
+         * references to the booster and rewards module described below.
 
-         For maximum accuracy and to avoid exploits, rewards accrual should be notified atomically through the accrue hook. 
+         Core does not manage any tokens directly. The rewards module maintains token balances, and approves core to pull transfer them to users when they claim.
+
+         SECURITY NOTE: For maximum accuracy and to avoid exploits, rewards accrual should be notified atomically through the accrue hook. 
          Accrue should be called any time tokens are transferred, minted, or burned.
  */
 contract FlywheelCore is Auth {
     using SafeTransferLib for ERC20;
-
-    event AddStrategy(address indexed newStrategy);
-
-    event FlywheelRewardsUpdate(address indexed newFlywheelRewards);
-
-    event FlywheelBoosterUpdate(address indexed newBooster);
-
-    event AccrueRewards(ERC20 indexed cToken, address indexed owner, uint rewardsDelta, uint rewardsIndex);
-    
-    event ClaimRewards(address indexed owner, uint256 amount);
-
-    struct RewardsState {
-        /// @notice The strategy's last updated index
-        uint224 index;
-
-        /// @notice The timestamp the index was last updated at
-        uint32 lastUpdatedTimestamp;
-    }
 
     /// @notice The token to reward
     ERC20 public immutable rewardToken;
@@ -48,18 +34,6 @@ contract FlywheelCore is Auth {
 
     /// @notice optional booster module for calculating virtual balances on strategies
     IFlywheelBooster public flywheelBooster;
-
-    /// @notice the fixed point factor of flywheel
-    uint224 public constant ONE = 1e18;
-
-    /// @notice The strategy index and last updated per strategy
-    mapping(ERC20 => RewardsState) public strategyState;
-
-    /// @notice user index per strategy
-    mapping(ERC20 => mapping(address => uint224)) public userIndex;
-
-    /// @notice The accrued but not yet transferred rewards for each user
-    mapping(address => uint256) public rewardsAccrued;
 
     constructor(
         ERC20 _rewardToken, 
@@ -73,6 +47,88 @@ contract FlywheelCore is Auth {
         flywheelBooster = _flywheelBooster;
     }
 
+    /*///////////////////////////////////////////////////////////////
+                        ACCRUE/CLAIM LOGIC
+    //////////////////////////////////////////////////////////////*/
+
+    /** 
+      @notice Emitted when a user's rewards accrue to a given strategy.
+      @param strategy the updated rewards strategy
+      @param user the user of the rewards
+      @param rewardsDelta how many new rewards accrued to the user
+      @param rewardsIndex the market index for rewards per token accrued
+    */
+    event AccrueRewards(ERC20 indexed strategy, address indexed user, uint rewardsDelta, uint rewardsIndex);
+    
+    /** 
+      @notice Emitted when a user claims accrued rewards.
+      @param user the user of the rewards
+      @param amount the amount of rewards claimed
+    */
+    event ClaimRewards(address indexed user, uint256 amount);
+
+    /// @notice The accrued but not yet transferred rewards for each user
+    mapping(address => uint256) public rewardsAccrued;
+
+    /** 
+      @notice accrue rewards for a single user on a strategy
+      @param strategy the strategy to accrue a user's rewards on
+      @param user the user to be accrued
+      @return the cumulative amount of rewards accrued to user (including prior)
+    */
+    function accrue(ERC20 strategy, address user) public returns (uint256) {
+        RewardsState memory state = strategyState[strategy];
+
+        if (state.index == 0) return 0;
+
+        state = accrueStrategy(strategy, state);
+        return accrueUser(strategy, user, state);
+    }
+
+    /** 
+      @notice accrue rewards for a two users on a strategy
+      @param strategy the strategy to accrue a user's rewards on
+      @param user the first user to be accrued
+      @param user the second user to be accrued
+      @return the cumulative amount of rewards accrued to the first user (including prior)
+      @return the cumulative amount of rewards accrued to the second user (including prior)
+    */    
+    function accrue(ERC20 strategy, address user, address secondUser) public returns (uint256, uint256) {
+        RewardsState memory state = strategyState[strategy];
+
+        if (state.index == 0) return (0, 0);
+
+        state = accrueStrategy(strategy, state);
+        return (accrueUser(strategy, user, state), accrueUser(strategy, secondUser, state));
+    }
+
+    /** 
+      @notice claim rewards for a given user
+      @param user the user claiming rewards
+      @dev this function is public, and all rewards transfer to the user
+    */    
+    function claimRewards(address user) external {
+        uint256 accrued = rewardsAccrued[user];
+
+        if (accrued != 0) {
+            rewardsAccrued[user] = 0;
+
+            rewardToken.safeTransferFrom(address(flywheelRewards), user, accrued); 
+
+            emit ClaimRewards(user, accrued);
+        }
+    }
+    
+    /*///////////////////////////////////////////////////////////////
+                          ADMIN LOGIC
+    //////////////////////////////////////////////////////////////*/
+
+    /** 
+      @notice Emitted when a new strategy is added to flywheel by the admin
+      @param newStrategy the new added strategy
+    */
+    event AddStrategy(address indexed newStrategy);
+
     /// @notice initialize a new strategy
     function addStrategyForRewards(ERC20 strategy) external requiresAuth {
         require(strategyState[strategy].index == 0, "strategy");
@@ -84,12 +140,24 @@ contract FlywheelCore is Auth {
         emit AddStrategy(address(strategy));
     }
 
+    /** 
+      @notice Emitted when the rewards module changes
+      @param newFlywheelRewards the new rewards module
+    */
+    event FlywheelRewardsUpdate(address indexed newFlywheelRewards);
+
     /// @notice swap out the flywheel rewards contract
     function setFlywheelRewards(IFlywheelRewards newFlywheelRewards) external requiresAuth {
         flywheelRewards = newFlywheelRewards;
 
         emit FlywheelRewardsUpdate(address(newFlywheelRewards));
     }
+
+    /** 
+      @notice Emitted when the booster module changes
+      @param newBooster the new booster module
+    */
+    event FlywheelBoosterUpdate(address indexed newBooster);
 
     /// @notice swap out the flywheel booster contract
     function setBooster(IFlywheelBooster newBooster) external requiresAuth {
@@ -98,38 +166,27 @@ contract FlywheelCore is Auth {
         emit FlywheelBoosterUpdate(address(newBooster));
     }
 
-    /// @notice accrue rewards for a single user on a strategy
-    function accrue(ERC20 strategy, address user) public returns (uint256) {
-        RewardsState memory state = strategyState[strategy];
+    /*///////////////////////////////////////////////////////////////
+                    INTERNAL ACCOUNTING LOGIC
+    //////////////////////////////////////////////////////////////*/
 
-        if (state.index == 0) return 0;
+    struct RewardsState {
+        /// @notice The strategy's last updated index
+        uint224 index;
 
-        state = accrueStrategy(strategy, state);
-        return accrueUser(strategy, user, state);
+        /// @notice The timestamp the index was last updated at
+        uint32 lastUpdatedTimestamp;
     }
+    
+    /// @notice the fixed point factor of flywheel
+    uint224 public constant ONE = 1e18;
 
-    /// @notice accrue rewards for two users on a strategy
-    function accrue(ERC20 strategy, address user, address secondUser) public returns (uint256, uint256) {
-        RewardsState memory state = strategyState[strategy];
+    /// @notice The strategy index and last updated per strategy
+    mapping(ERC20 => RewardsState) public strategyState;
 
-        if (state.index == 0) return (0, 0);
+    /// @notice user index per strategy
+    mapping(ERC20 => mapping(address => uint224)) public userIndex;
 
-        state = accrueStrategy(strategy, state);
-        return (accrueUser(strategy, user, state), accrueUser(strategy, secondUser, state));
-    }
-
-    /// @notice claim rewards for a given owner
-    function claimRewards(address owner) external {
-        uint256 accrued = rewardsAccrued[owner];
-
-        if (accrued != 0) {
-            rewardsAccrued[owner] = 0;
-
-            rewardToken.safeTransferFrom(address(flywheelRewards), owner, accrued); 
-
-            emit ClaimRewards(owner, accrued);
-        }
-    }
 
     /// @notice accumulate global rewards on a strategy
     function accrueStrategy(ERC20 strategy, RewardsState memory state) private returns(RewardsState memory rewardsState) {

@@ -8,6 +8,7 @@ import {FlywheelCore} from "../FlywheelCore.sol";
 /** 
  @title Flywheel Reward Module
  @notice Determines how many rewards accrue to each strategy globally over a given time period.
+ @dev approves the flywheel core for the reward token to allow balances to be managed by the module but claimed from core.
 */ 
 abstract contract BaseFlywheelRewards is IFlywheelRewards {
     using SafeTransferLib for ERC20;
