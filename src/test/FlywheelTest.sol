@@ -5,13 +5,13 @@ import {DSTestPlus} from "solmate/test/utils/DSTestPlus.sol";
 import {MockERC20} from "solmate/test/utils/mocks/MockERC20.sol";
 import {MockMarket} from "./mocks/MockMarket.sol";
 import {MockBooster} from "./mocks/MockBooster.sol";
+import {MockRewards} from "./mocks/MockRewards.sol";
 
 import "../FlywheelCore.sol";
-import {FlywheelDynamicRewards} from "../rewards/FlywheelDynamicRewards.sol";
 
 contract FlywheelTest is DSTestPlus {
     FlywheelCore flywheel;
-    FlywheelDynamicRewards rewards;
+    MockRewards rewards;
 
     MockMarket market;
     MockERC20 rewardToken;
@@ -26,13 +26,13 @@ contract FlywheelTest is DSTestPlus {
         
         flywheel = new FlywheelCore(
             rewardToken, 
-            FlywheelDynamicRewards(address(0)),
+            MockRewards(address(0)),
             IFlywheelBooster(address(0)),
             address(this),
             Authority(address(0))
         );
 
-        rewards = new FlywheelDynamicRewards(rewardToken, address(flywheel));
+        rewards = new MockRewards(flywheel);
 
         flywheel.setFlywheelRewards(rewards);
     }
@@ -65,7 +65,8 @@ contract FlywheelTest is DSTestPlus {
 
         market.approve(rewardToken, address(rewards));
 
-        rewardToken.mint(address(market), 10 ether);
+        rewardToken.mint(address(rewards), 10 ether);
+        rewards.setRewardsAmount(market, 10 ether);
 
         flywheel.addMarketForRewards(market);
         
@@ -88,7 +89,8 @@ contract FlywheelTest is DSTestPlus {
 
         market.approve(rewardToken, address(rewards));
 
-        rewardToken.mint(address(market), 10 ether);
+        rewardToken.mint(address(rewards), 10 ether);
+        rewards.setRewardsAmount(market, 10 ether);
 
         flywheel.addMarketForRewards(market);
         
@@ -112,7 +114,8 @@ contract FlywheelTest is DSTestPlus {
 
         market.approve(rewardToken, address(rewards));
 
-        rewardToken.mint(address(market), 10 ether);
+        rewardToken.mint(address(rewards), 10 ether);
+        rewards.setRewardsAmount(market, 10 ether);
 
         require(flywheel.accrue(market, user) == 0);
     }
@@ -123,7 +126,8 @@ contract FlywheelTest is DSTestPlus {
 
         market.approve(rewardToken, address(rewards));
 
-        rewardToken.mint(address(market), 10 ether);
+        rewardToken.mint(address(rewards), 10 ether);
+        rewards.setRewardsAmount(market, 10 ether);
 
         (uint256 accrued1, uint256 accrued2) = flywheel.accrue(market, user, user2);
 
@@ -137,11 +141,15 @@ contract FlywheelTest is DSTestPlus {
 
         market.approve(rewardToken, address(rewards));
 
-        rewardToken.mint(address(market), 10 ether);
+        rewardToken.mint(address(rewards), 10 ether);
+        rewards.setRewardsAmount(market, 10 ether);
 
         flywheel.addMarketForRewards(market);
         
         uint256 accrued = flywheel.accrue(market, user);
+
+        rewards.setRewardsAmount(market, 0);
+
         uint256 accrued2 = flywheel.accrue(market, user2);
 
         (uint224 index,) = flywheel.marketState(market);
@@ -161,7 +169,8 @@ contract FlywheelTest is DSTestPlus {
 
         market.approve(rewardToken, address(rewards));
 
-        rewardToken.mint(address(market), 10 ether);
+        rewardToken.mint(address(rewards), 10 ether);
+        rewards.setRewardsAmount(market, 10 ether);
 
         flywheel.addMarketForRewards(market);
         
@@ -180,7 +189,8 @@ contract FlywheelTest is DSTestPlus {
     
         market.mint(user2, 3 ether);
 
-        rewardToken.mint(address(market), 4 ether);
+        rewardToken.mint(address(rewards), 4 ether);
+        rewards.setRewardsAmount(market, 4 ether);
         
         (accrued, accrued2) = flywheel.accrue(market, user, user2);
 
@@ -214,13 +224,13 @@ contract FlywheelTest is DSTestPlus {
 
         flywheel = new FlywheelCore(
             rewardToken, 
-            FlywheelDynamicRewards(address(0)),
+            MockRewards(address(0)),
             IFlywheelBooster(address(booster)),
             address(this),
             Authority(address(0))
         );
 
-        rewards = new FlywheelDynamicRewards(rewardToken, address(flywheel));
+        rewards = new MockRewards(flywheel);
 
         flywheel.setFlywheelRewards(rewards);
 
@@ -229,7 +239,8 @@ contract FlywheelTest is DSTestPlus {
 
         market.approve(rewardToken, address(rewards));
 
-        rewardToken.mint(address(market), 10 ether);
+        rewardToken.mint(address(rewards), 10 ether);
+        rewards.setRewardsAmount(market, 10 ether);
 
         flywheel.addMarketForRewards(market);
         

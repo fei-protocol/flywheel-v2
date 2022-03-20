@@ -7,14 +7,6 @@ import {ERC20} from "solmate/test/utils/mocks/MockERC20.sol";
 import "../fuse-compatibility/FuseFlywheelCore.sol";
 import "../fuse-compatibility/FuseFlywheelLensRouter.sol";
 
-interface Comptroller {
-    function admin() external returns (address);
-
-    function _addRewardsDistributor(address distributor) external returns (uint);
-
-    function getRewardsDistributors() external view returns(FlywheelCore[] memory);
-}
-
 abstract contract CErc20 is ERC20 {
     function mint(uint256 amount) external virtual returns(uint);
 }

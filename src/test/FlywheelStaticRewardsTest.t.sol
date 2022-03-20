@@ -4,6 +4,7 @@ pragma solidity 0.8.10;
 import {DSTestPlus} from "solmate/test/utils/DSTestPlus.sol";
 import {MockERC20} from "solmate/test/utils/mocks/MockERC20.sol";
 import {MockMarket} from "./mocks/MockMarket.sol";
+import {FlywheelCore} from "../FlywheelCore.sol";
 
 import {FlywheelStaticRewards, Authority} from "../rewards/FlywheelStaticRewards.sol";
 
@@ -12,14 +13,16 @@ contract FlywheelStaticRewardsTest is DSTestPlus {
     FlywheelStaticRewards rewards;
 
     MockMarket market;
-    MockERC20 rewardToken;
+    MockERC20 public rewardToken;
 
     function setUp() public {
         rewardToken = new MockERC20("test token", "TKN", 18);
 
         market = new MockMarket();
 
-        rewards = new FlywheelStaticRewards(rewardToken, address(this), address(this), Authority(address(0)));
+        rewards = new FlywheelStaticRewards(FlywheelCore(address(this)), address(this), Authority(address(0)));
+
+
     }
 
     function testSetRewardsInfo() public {
