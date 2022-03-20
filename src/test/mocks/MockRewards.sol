@@ -5,7 +5,7 @@ import "../../rewards/BaseFlywheelRewards.sol";
 
 contract MockRewards is BaseFlywheelRewards {
 
-    /// @notice rewards amount per market
+    /// @notice rewards amount per strategy
     mapping(ERC20 => uint256) public rewardsAmount;
 
     constructor(
