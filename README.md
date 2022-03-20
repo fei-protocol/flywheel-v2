@@ -1,62 +1,65 @@
 # Flywheel v2
-Flywheel is a general incentives architecture which can be plugged directly into other protocols and mechanisms:
-* inside an ERC-20
-* inside a vault such as [ERC-4626](https://eips.ethereum.org/EIPS/eip-4626)
-* inside lending markets such as [Fuse](https://app.rari.capital/fuse)
+Flywheel is a suite of open source token incentives and governance infrastructure using modern and modular solidity patterns to easily interface with other platforms.
 
-It's modular architecture supports various kinds of reward streams:
-* per second emissions
-* dynamic emissions from other sources
-* liquid governance reward direction like Curve and Tokemak
+It is built by the [Tribe DAO](http://tribedao.xyz/) using [Foundry](https://github.com/gakonst/foundry) and [Solmate](https://github.com/Rari-Capital/solmate).
 
-It also supports virtual balances and boosting via the booster module.
+Flywheel is completely on-chain and composable, for maximum compatibility with smart contract systems.
 
-Flywheel can be used to accomodate nearly any desired incentive behavior.
+**Coming Soon**
+- xERC4626 - single sided staking
+- ERC20Gauges/FlywheelGaugeRewards - allow token holders to direct rewards
+- ERC20MultiVotes - GovernorBravo voting with multi-delegation capabilities
 
-## Architecture 
-![](https://i.imgur.com/k29SnsF.png)
 
-Incentives systems can be broken down into the following components
+## Overview
 
-## Indexes and Claiming
-The "index" tells how many rewards have accrued per staked unit since the contract start. This is stored on a global and per user level.
+Flywheel has two major components, the core incentives engine (including a suite of rewards modules and boosters) and ERC20 token utilities (xERC4626, ERC20MultiVotes, ERC20Gauges).
 
-### Index initialization
-Start the reward stream at some unit, usually 1 * some fixed point factor.
+Production examples of the incentives engine:
+* [fuse-flywheel](https://github.com/fei-protocol/fuse-flywheel) used to reward depositors to Fuse lending markets.
 
-For a user, the index should match the current global index when they enter the strategy. This is accomplished by always accruing and syncing before mint or redeem actions. Likewise its applied across both users before a transfer.
+### FlywheelCore Incentives Engine
+The incentives engine is used to reward *users* for holding tokens in *strategies*. This can be as simple as vanilla liquidity mining or involve complex vote-escrow and boosting mechanics. Some common strategies include:
+* Lending (or borrowing) on [Fuse](https://app.rari.capital/fuse) or other platforms.
+* Depositing to an [ERC-4626 Vault](https://eips.ethereum.org/EIPS/eip-4626).
 
-If a user was in the market before, they should initialize to the same index the global unit started at, so they accrue all rewards proportionately.
+The core incentives engine supports a single reward token, and multiple reward tokens can easily be supported by adding multiple flywheels.
 
-### Accruing
-As tokens are claimed they are accrued against the index so there is no double spending.
+The rewards accrue to each strategy via a *rewards module.* By default, the rewards are distributed pro rata to users holding the strategy over time, but this can be transformed via a *booster module*.
 
-A user receives `balance(user) / totalSupply() * accruedRewards()` tokens.
+### Rewards Module
+The rewards module determines how many tokens go to each strategy over time. Assume a single constant or variable reward stream of tokens which needs to be divided amongst all the strategies.
 
-### Claim
-The "claim" action locks in rewards and transfers them to the owner.
+The rewards can be divided according to any algorithm, some examples:
+* constant reward stream per second/block
+* proportional according to weights. Weights could be determined via liquid governance like [Curve gauges](https://resources.curve.fi/base-features/understanding-gauges).
+* dynamically pass through rewards from an upstream plugin. For example passing through convex or balancer rewards to stakers. [Convex Fuse Pool example](https://app.rari.capital/fuse/pool/156).
 
----
-Initialization, Accruing, and Claiming together form the "core" of an incentives architecture. In Flywheel v2 they will be the immutable center, with other features plugging in.
+### Boosting Module
 
-## Rewards Module
-There are several ways to carve up the weights on a given reward stream. Rewards can be given in absolute terms according to a fixed governance process (a la Compound TRIBE per block) or relative terms (a la Sushiswap MasterChef allocation points).
+Normally, rewards for users are calulated by dividing the user's `balanceOf` on the strategy divided by the `totalSupply` of the strategy.
 
-Some of the most effective structures give some or all of the emissions control to the token holders themselves through a liquid "Rewards delegation" procedure.
+However, some strategies require additional logic to boost or otherwise transform the user's balance. This is where the boosting module can do just that. If added to the incentives engine, it calculates a users rewards by dividing their boosted balance by the bosoted total supply.
 
-Flywheel v2 will support both of these use cases, and have the flexibility to accommodate many more through the configurable weights module.
+### ERC20 Token Utilities
 
-The initial rewards calculation module "FlywheelDynamicRewards" will simply passthrough tokens that accrue directly to the strategy back to the depositors in that strategy.
+**Coming Soon**
 
-## Balance Boosting
-Balance boosting is a way to virtualize a user's deposit weight in the strategy. This can be used for example to incentivize borrowing or apply vote-escrowed boosting.
+## Adding Flywheel to Your Smart Contracts
 
-The booster module is assumed to have correct accounting and state management.
+To add flywheel to a forge compatible repository, simply run:
 
----
+`forge install fei-protocol/flywheel-v2`
 
-# Testing
+Alternatively, fork the flywheel-v2 repository to build directly using the repo.
 
-To test:
-1. Set $MAINNET_ALCHEMY_API_KEY environment variable with an alchemy key
-2. run `FORK_BLOCK=14193630 npm run test:integration`. Requires having [foundry installed](https://github.com/gakonst/foundry#installation).
+### Flywheel Core
+The FlywheelCore contract maintains all reward amounts for all user,strategy pairs. In order to have fully accurate accounting, the flywheel core needs to be updated every time the composition of the strategy changes. When the strategy is an ERC-20 or ERC-4626, this means that on mint/burn/transfer the `accrue` function needs to be called atomically for all affected users.
+
+Example: on Fuse the `flywheelPre*` [hooks](https://github.com/Rari-Capital/compound-protocol/blob/fuse-final/contracts/Comptroller.sol#L738).
+
+### FlywheelRewards Modules
+
+The flywheel rewards needs to approve `rewardToken` to the FlywheelCore contract so that when users claim their rewards can be transferred from the rewards module to the user. The flywheelRewards must then eventually hold custody over all claimable tokens.
+
+Every time flywheelCore calls getAccruedRewards(), the returned amount needs to be added to (or already held by) the flywheel rewards module.
