@@ -15,11 +15,11 @@ contract MockBooster {
         totalBoost += boost;
     }
 
-    function boostedTotalSupply(ERC20 market) external view returns(uint256) {
-        return market.totalSupply() + totalBoost;
+    function boostedTotalSupply(ERC20 strategy) external view returns(uint256) {
+        return strategy.totalSupply() + totalBoost;
     }
 
-    function boostedBalanceOf(ERC20 market, address user) external view returns(uint256) {
-        return market.balanceOf(user) + boosts[user];
+    function boostedBalanceOf(ERC20 strategy, address user) external view returns(uint256) {
+        return strategy.balanceOf(user) + boosts[user];
     }
 }

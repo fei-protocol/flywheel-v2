@@ -3,7 +3,6 @@ pragma solidity 0.8.10;
 
 import {DSTestPlus} from "solmate/test/utils/DSTestPlus.sol";
 import {MockERC20} from "solmate/test/utils/mocks/MockERC20.sol";
-import {MockMarket} from "./mocks/MockMarket.sol";
 import {FlywheelCore} from "../FlywheelCore.sol";
 
 import {FlywheelStaticRewards, Authority} from "../rewards/FlywheelStaticRewards.sol";
@@ -12,13 +11,13 @@ contract FlywheelStaticRewardsTest is DSTestPlus {
 
     FlywheelStaticRewards rewards;
 
-    MockMarket market;
+    MockERC20 strategy;
     MockERC20 public rewardToken;
 
     function setUp() public {
         rewardToken = new MockERC20("test token", "TKN", 18);
 
-        market = new MockMarket();
+        strategy = new MockERC20("test strategy", "TKN", 18);
 
         rewards = new FlywheelStaticRewards(FlywheelCore(address(this)), address(this), Authority(address(0)));
 
@@ -26,14 +25,14 @@ contract FlywheelStaticRewardsTest is DSTestPlus {
     }
 
     function testSetRewardsInfo() public {
-        (uint224 rewardsPerSecond, uint32 rewardsEndTimestamp) = rewards.rewardsInfo(market);
+        (uint224 rewardsPerSecond, uint32 rewardsEndTimestamp) = rewards.rewardsInfo(strategy);
         require(rewardsPerSecond == 0);
         require(rewardsEndTimestamp == 0);
 
         uint32 newEnd = uint32(block.timestamp) + 100;
-        rewards.setRewardsInfo(market, FlywheelStaticRewards.RewardsInfo({rewardsPerSecond: 1 ether, rewardsEndTimestamp: newEnd}));
+        rewards.setRewardsInfo(strategy, FlywheelStaticRewards.RewardsInfo({rewardsPerSecond: 1 ether, rewardsEndTimestamp: newEnd}));
 
-        (rewardsPerSecond, rewardsEndTimestamp) = rewards.rewardsInfo(market);
+        (rewardsPerSecond, rewardsEndTimestamp) = rewards.rewardsInfo(strategy);
 
         require(rewardsPerSecond == 1 ether);
         require(rewardsEndTimestamp == newEnd);
@@ -45,7 +44,7 @@ contract FlywheelStaticRewardsTest is DSTestPlus {
 
         rewardToken.mint(address(rewards), 100 ether);
 
-        require(rewards.getAccruedRewards(market, uint32(block.timestamp - 10)) == 10 ether);
+        require(rewards.getAccruedRewards(strategy, uint32(block.timestamp - 10)) == 10 ether);
         require(rewardToken.balanceOf(address(rewards)) == 100 ether);
     }
 
@@ -56,7 +55,7 @@ contract FlywheelStaticRewardsTest is DSTestPlus {
 
         rewardToken.mint(address(rewards), 100 ether);
 
-        require(rewards.getAccruedRewards(market, uint32(block.timestamp - 1000)) == 100 ether);
+        require(rewards.getAccruedRewards(strategy, uint32(block.timestamp - 1000)) == 100 ether);
         require(rewardToken.balanceOf(address(rewards)) == 100 ether);
     }
 
@@ -67,7 +66,7 @@ contract FlywheelStaticRewardsTest is DSTestPlus {
 
         rewardToken.mint(address(rewards), 20 ether);
 
-        require(rewards.getAccruedRewards(market, uint32(block.timestamp - 1000)) == 100 ether);
+        require(rewards.getAccruedRewards(strategy, uint32(block.timestamp - 1000)) == 100 ether);
         require(rewardToken.balanceOf(address(rewards)) == 20 ether);
     }
 }

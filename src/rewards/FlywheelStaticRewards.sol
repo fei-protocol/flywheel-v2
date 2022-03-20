@@ -10,7 +10,7 @@ import "./BaseFlywheelRewards.sol";
 */ 
 contract FlywheelStaticRewards is Auth, BaseFlywheelRewards {
 
-    event RewardsInfoUpdate(ERC20 indexed market, uint224 rewardsPerSecond, uint32 rewardsEndTimestamp);
+    event RewardsInfoUpdate(ERC20 indexed strategy, uint224 rewardsPerSecond, uint32 rewardsEndTimestamp);
 
     struct RewardsInfo {
         /// @notice Rewards per second
@@ -21,7 +21,7 @@ contract FlywheelStaticRewards is Auth, BaseFlywheelRewards {
         uint32 rewardsEndTimestamp;
     }
 
-    /// @notice rewards info per market
+    /// @notice rewards info per strategy
     mapping(ERC20 => RewardsInfo) public rewardsInfo;
 
     constructor(
@@ -32,22 +32,22 @@ contract FlywheelStaticRewards is Auth, BaseFlywheelRewards {
 
     /**
      @notice set rewards per second and rewards end time for Fei Rewards
-     @param market the market to accrue rewards for
-     @param rewards the rewards info for the market
+     @param strategy the strategy to accrue rewards for
+     @param rewards the rewards info for the strategy
      */    
-    function setRewardsInfo(ERC20 market, RewardsInfo calldata rewards) external requiresAuth {
-        rewardsInfo[market] = rewards;
-        emit RewardsInfoUpdate(market, rewards.rewardsPerSecond, rewards.rewardsEndTimestamp);
+    function setRewardsInfo(ERC20 strategy, RewardsInfo calldata rewards) external requiresAuth {
+        rewardsInfo[strategy] = rewards;
+        emit RewardsInfoUpdate(strategy, rewards.rewardsPerSecond, rewards.rewardsEndTimestamp);
     }
 
     /**
      @notice calculate and transfer accrued rewards to flywheel core
-     @param market the market to accrue rewards for
-     @param lastUpdatedTimestamp the last updated time for market
+     @param strategy the strategy to accrue rewards for
+     @param lastUpdatedTimestamp the last updated time for strategy
      @return amount the amount of tokens accrued and transferred
      */
-    function getAccruedRewards(ERC20 market, uint32 lastUpdatedTimestamp) external view override onlyFlywheel returns (uint256 amount) {
-        RewardsInfo memory rewards = rewardsInfo[market];
+    function getAccruedRewards(ERC20 strategy, uint32 lastUpdatedTimestamp) external view override onlyFlywheel returns (uint256 amount) {
+        RewardsInfo memory rewards = rewardsInfo[strategy];
 
         uint256 elapsed;
         if (rewards.rewardsEndTimestamp == 0 || rewards.rewardsEndTimestamp > block.timestamp) {
