@@ -53,9 +53,21 @@ contract FlywheelTest is DSTestPlus {
         require(flywheel.flywheelRewards() == IFlywheelRewards(address(1)));
     }
 
-    function testFailSetFlywheelRewards() public {
+    function testSetFlywheelRewardsUnauthorized() public {
         hevm.prank(address(1));
+        hevm.expectRevert(bytes("UNAUTHORIZED"));
         flywheel.setFlywheelRewards(IFlywheelRewards(address(1)));
+    }
+
+    function testSetFlywheelBooster() public {
+        flywheel.setBooster(IFlywheelBooster(address(1)));
+        require(flywheel.flywheelBooster() == IFlywheelBooster(address(1)));
+    }
+
+    function testSetFlywheelBoosterUnauthorized() public {
+        hevm.prank(address(1));
+        hevm.expectRevert(bytes("UNAUTHORIZED"));
+        flywheel.setBooster(IFlywheelBooster(address(1)));
     }
 
     function testAccrue() public {
