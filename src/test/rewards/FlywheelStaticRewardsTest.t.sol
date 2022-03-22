@@ -3,9 +3,9 @@ pragma solidity 0.8.10;
 
 import {DSTestPlus} from "solmate/test/utils/DSTestPlus.sol";
 import {MockERC20} from "solmate/test/utils/mocks/MockERC20.sol";
-import {FlywheelCore} from "../FlywheelCore.sol";
+import {FlywheelCore} from "../../FlywheelCore.sol";
 
-import {FlywheelStaticRewards, Authority} from "../rewards/FlywheelStaticRewards.sol";
+import {FlywheelStaticRewards, Authority} from "../../rewards/FlywheelStaticRewards.sol";
 
 contract FlywheelStaticRewardsTest is DSTestPlus {
 
