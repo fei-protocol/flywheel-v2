@@ -2,12 +2,9 @@
 pragma solidity 0.8.10;
 
 import {Auth, Authority} from "solmate/auth/Auth.sol";
-import {SafeTransferLib, ERC20} from "solmate/utils/SafeTransferLib.sol";
-import {IFlywheelRewards} from "../interfaces/IFlywheelRewards.sol";
+import "./BaseFlywheelRewards.sol";
 
 import {ERC20Gauges} from "../token/ERC20Gauges.sol";
-
-import {FlywheelCore} from "../FlywheelCore.sol";
 
 /// @notice a contract which streams reward tokens to the FlywheelRewards module
 interface IRewardsStream {
@@ -32,19 +29,13 @@ interface IRewardsStream {
     If `e` is the cycle end, `t` is the min of e and current timestamp, and `p` is the prior updated time:
     For `A` accrued rewards over the cycle, distribute `min(A * (t-p)/(e-p), A)`.
 */ 
-contract FlywheelGaugeRewards is Auth, IFlywheelRewards {
+contract FlywheelGaugeRewards is Auth, BaseFlywheelRewards {
     using SafeTransferLib for ERC20;
 
     error CycleError();
     error EmptyGaugesError();
 
     // TODO add events
-
-    /// @notice the flywheel core contract
-    address public immutable flywheel;
-
-    /// @notice the reward token paid
-    ERC20 public immutable rewardToken;
 
     /// @notice the start of the current cycle
     uint32 public gaugeCycle;
@@ -83,12 +74,7 @@ contract FlywheelGaugeRewards is Auth, IFlywheelRewards {
         Authority _authority,
         ERC20Gauges _gaugeToken,
         IRewardsStream _rewardsStream
-    ) Auth(_owner, _authority) {
-        flywheel = address(_flywheel);
-        ERC20 _rewardToken = _flywheel.rewardToken();
-
-        _rewardToken.safeApprove(flywheel, type(uint256).max);
-        rewardToken = _rewardToken;
+    ) BaseFlywheelRewards(_flywheel) Auth(_owner, _authority) {
 
         gaugeCycleLength = _gaugeToken.gaugeCycleLength();
 
@@ -213,9 +199,7 @@ contract FlywheelGaugeRewards is Auth, IFlywheelRewards {
 
      GAS: Average path includes 2 SLOAD, 1 warm SSTORE.
     */
-    function getAccruedRewards(ERC20 gauge, uint32 lastUpdatedTimestamp) external override returns (uint256 accruedRewards) {
-        require(msg.sender == flywheel, "!flywheel");
-
+    function getAccruedRewards(ERC20 gauge, uint32 lastUpdatedTimestamp) external override onlyFlywheel returns (uint256 accruedRewards) {
         QueuedRewards memory queuedRewards = gaugeQueuedRewards[gauge]; // SLOAD
 
         uint32 cycle = gaugeCycle;
