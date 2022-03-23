@@ -12,17 +12,15 @@ contract ERC20MultiVotesTest is DSTestPlus {
 
     function setUp() public {
         token = new MockERC20MultiVotes(address(this));
-        token.mint(address(this), 100e18);
-        token.setMaxDelegates(2);
     }
 
     /*///////////////////////////////////////////////////////////////
                         TEST ADMIN OPERATIONS
     //////////////////////////////////////////////////////////////*/
 
-    function testSetMaxDelegates() public {
-        token.setMaxDelegates(5);
-        require(token.maxDelegates() == 5);
+    function testSetMaxDelegates(uint256 max) public {
+        token.setMaxDelegates(max);
+        require(token.maxDelegates() == max);
     }
 
     function testSetMaxDelegatesNonOwner() public {
@@ -51,47 +49,44 @@ contract ERC20MultiVotesTest is DSTestPlus {
                         TEST USER DELEGATION OPERATIONS
     //////////////////////////////////////////////////////////////*/
 
-    /// @notice test delegating different delegatees 4 times by multiple users and amounts
-    function testDelegate() public {
-        // delegate1,user1 +1
-        token.delegate(delegate1, 1e18);
-        require(token.delegatesVotesCount(address(this), delegate1) == 1e18);
-        require(token.userDelegatedVotes(address(this)) == 1e18);
-        require(token.getVotes(delegate1) == 1e18);
-        require(token.freeVotes(address(this)) == 99e18);
+    /// @notice test delegating different delegatees 8 times by multiple users and amounts
+    function testDelegate(address[8] memory from, address[8] memory delegates, uint224[8] memory amounts) public {
+        token.setMaxDelegates(8);
 
-        // delegate2,user1 +2
-        token.delegate(delegate2, 2e18);
-        require(token.delegatesVotesCount(address(this), delegate2) == 2e18);
-        require(token.userDelegatedVotes(address(this)) == 3e18);
-        require(token.getVotes(delegate2) == 2e18);
-        require(token.freeVotes(address(this)) == 97e18);
+        unchecked {
+            uint224 sum;
+            for (uint256 i = 0; i < 8; i++) {
+                hevm.assume(sum + amounts[i] >= sum && from[i] != address(0) && delegates[i] != address(0));
+                sum += amounts[i];
+                
+                token.mint(from[i], amounts[i]);
 
-        // delegate1,user1 +4
-        token.delegate(delegate1, 4e18);
-        require(token.delegatesVotesCount(address(this), delegate1) == 5e18);
-        require(token.userDelegatedVotes(address(this)) == 7e18);
-        require(token.getVotes(delegate1) == 5e18);
-        require(token.freeVotes(address(this)) == 93e18);
+                uint256 userDelegatedBefore = token.userDelegatedVotes(from[i]);
+                uint256 delegateVotesBefore = token.delegatesVotesCount(from[i], delegates[i]);
+                uint256 votesBefore = token.getVotes(delegates[i]);
 
-        // delegate2,user2 +3
-        hevm.startPrank(address(1));
-        token.mint(address(1), 10e18);
-
-        token.delegate(delegate2, 3e18);
-        require(token.delegatesVotesCount(address(1), delegate2) == 3e18);
-        require(token.userDelegatedVotes(address(1)) == 3e18);
-        require(token.getVotes(delegate2) == 5e18);
-        require(token.freeVotes(address(1)) == 7e18);
+                hevm.prank(from[i]);
+                token.delegate(delegates[i], amounts[i]);
+                require(token.delegatesVotesCount(from[i], delegates[i]) == delegateVotesBefore + amounts[i]);
+                require(token.userDelegatedVotes(from[i]) == userDelegatedBefore + amounts[i]);
+                require(token.getVotes(delegates[i]) == votesBefore + amounts[i]);
+            }
+        }
     }   
 
     function testDelegateOverVotes() public {
+        token.mint(address(this), 100e18);
+        token.setMaxDelegates(2);
+
         token.delegate(delegate1, 50e18);
         hevm.expectRevert(abi.encodeWithSignature("DelegationError()"));   
         token.delegate(delegate2, 51e18);
     }
 
     function testDelegateOverMaxDelegates() public {
+        token.mint(address(this), 100e18);
+        token.setMaxDelegates(2);
+
         token.delegate(delegate1, 50e18);
         token.delegate(delegate2, 1e18);
         hevm.expectRevert(abi.encodeWithSignature("DelegationError()"));   
@@ -99,6 +94,9 @@ contract ERC20MultiVotesTest is DSTestPlus {
     }
 
     function testDelegateOverMaxDelegatesApproved() public {
+        token.mint(address(this), 100e18);
+        token.setMaxDelegates(2);
+
         token.setContractExceedMaxDelegates(address(this), true);
         token.delegate(delegate1, 50e18);
         token.delegate(delegate2, 1e18);
@@ -111,6 +109,9 @@ contract ERC20MultiVotesTest is DSTestPlus {
 
     /// @notice test undelegate twice, 2 tokens each after delegating by 4.
     function testUndelegate() public {
+        token.mint(address(this), 100e18);
+        token.setMaxDelegates(2);
+
         token.delegate(delegate1, 4e18);
 
         token.undelegate(delegate1, 2e18);
@@ -127,12 +128,18 @@ contract ERC20MultiVotesTest is DSTestPlus {
     }   
 
     function testDecrementOverWeight() public {
+        token.mint(address(this), 100e18);
+        token.setMaxDelegates(2);
+
         token.delegate(delegate1, 50e18);
         hevm.expectRevert(abi.encodeWithSignature("Panic(uint256)", 17));
         token.undelegate(delegate1, 51e18);
     }
 
     function testRedelegate() public {  
+        token.mint(address(this), 100e18);
+        token.setMaxDelegates(2);
+
         token.delegate(delegate1, 4e18);
 
         token.redelegate(delegate1, delegate2, 1e18);
@@ -149,6 +156,9 @@ contract ERC20MultiVotesTest is DSTestPlus {
     //////////////////////////////////////////////////////////////*/
     
     function testPastVotes() public {
+        token.mint(address(this), 100e18);
+        token.setMaxDelegates(2);
+
         token.delegate(delegate1, 4e18);
 
         uint256 block1 = block.number;
@@ -226,6 +236,9 @@ contract ERC20MultiVotesTest is DSTestPlus {
     //////////////////////////////////////////////////////////////*/
 
     function testDecrementUntilFreeWhenFree() public {
+        token.mint(address(this), 100e18);
+        token.setMaxDelegates(2);
+
         token.delegate(delegate1, 10e18);
         token.delegate(delegate2, 20e18);
         require(token.freeVotes(address(this)) == 70e18);
@@ -241,6 +254,9 @@ contract ERC20MultiVotesTest is DSTestPlus {
     }
 
     function testDecrementUntilFreeSingle() public {
+        token.mint(address(this), 100e18);
+        token.setMaxDelegates(2);
+
         token.delegate(delegate1, 10e18);
         token.delegate(delegate2, 20e18);
         require(token.freeVotes(address(this)) == 70e18);
@@ -256,6 +272,9 @@ contract ERC20MultiVotesTest is DSTestPlus {
     }
 
     function testDecrementUntilFreeDouble() public {
+        token.mint(address(this), 100e18);
+        token.setMaxDelegates(2);
+
         token.delegate(delegate1, 10e18);
         token.delegate(delegate2, 20e18);
         require(token.freeVotes(address(this)) == 70e18);
