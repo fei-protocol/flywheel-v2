@@ -146,13 +146,13 @@ abstract contract ERC20MultiVotes is ERC20, Auth {
     error DelegationError();
 
     /// @notice mapping from a delegator and delegatee to the delegated amount.
-    mapping(address => mapping(address => uint256)) private _delegatesVotesCount;
+    mapping(address => mapping(address => uint256)) internal _delegatesVotesCount;
 
     /// @notice mapping from a delegator to the total number of delegated votes.
     mapping(address => uint256) public userDelegatedVotes;
 
     /// @notice list of delegates per user.
-    mapping(address => EnumerableSet.AddressSet) private _delegates;
+    mapping(address => EnumerableSet.AddressSet) internal _delegates;
 
     /**
      * @notice Get the amount of votes currently delegated by `delegator` to `delegatee`.
