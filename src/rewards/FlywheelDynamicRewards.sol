@@ -2,6 +2,7 @@
 pragma solidity 0.8.10;
 
 import "./BaseFlywheelRewards.sol";
+import {SafeCastLib} from "solmate/utils/SafeCastLib.sol";
 
 /** 
  @title Flywheel Dynamic Reward Stream
@@ -12,6 +13,7 @@ import "./BaseFlywheelRewards.sol";
 */ 
 abstract contract FlywheelDynamicRewards is BaseFlywheelRewards {
     using SafeTransferLib for ERC20;
+    using SafeCastLib for uint256;
 
     event NewRewardsCycle(uint32 indexed start, uint32 indexed end, uint192 reward); 
 
@@ -38,7 +40,7 @@ abstract contract FlywheelDynamicRewards is BaseFlywheelRewards {
     function getAccruedRewards(ERC20 strategy, uint32 lastUpdatedTimestamp) external override onlyFlywheel returns (uint256 amount) {
         RewardsCycle memory cycle = rewardsCycle[strategy];
 
-        uint32 timestamp = uint32(block.timestamp);
+        uint32 timestamp = block.timestamp.safeCastTo32();
 
         uint32 latest = timestamp >= cycle.end ? cycle.end : timestamp;
         uint32 earliest = lastUpdatedTimestamp <= cycle.start ? cycle.start : lastUpdatedTimestamp;

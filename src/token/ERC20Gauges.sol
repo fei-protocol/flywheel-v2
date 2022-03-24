@@ -116,7 +116,7 @@ abstract contract ERC20Gauges is ERC20, Auth {
     }
 
     function _getCurrentCycle() internal view returns(uint32) {
-        return (uint32(block.timestamp) + gaugeCycleLength) / gaugeCycleLength * gaugeCycleLength;
+        return (block.timestamp.safeCastTo32() + gaugeCycleLength) / gaugeCycleLength * gaugeCycleLength;
     }
 
     /// @notice returns the current weight of a given gauge
@@ -361,9 +361,10 @@ abstract contract ERC20Gauges is ERC20, Auth {
     ) private {
         uint112 previousCurrent = weight.currentWeight;
         uint112 stored = weight.currentCycle < cycle ? previousCurrent : weight.storedWeight;
+        uint112 newWeight = op(previousCurrent, delta);
 
         weight.storedWeight = stored;
-        weight.currentWeight = op(previousCurrent, delta);
+        weight.currentWeight = newWeight;
         weight.currentCycle = cycle;
     }
 

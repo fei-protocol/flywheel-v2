@@ -2,6 +2,8 @@
 pragma solidity 0.8.10;
 
 import {Auth, Authority} from "solmate/auth/Auth.sol";
+import {SafeCastLib} from "solmate/utils/SafeCastLib.sol";
+
 import "./BaseFlywheelRewards.sol";
 
 import {ERC20Gauges} from "../token/ERC20Gauges.sol";
@@ -31,6 +33,7 @@ interface IRewardsStream {
 */ 
 contract FlywheelGaugeRewards is Auth, BaseFlywheelRewards {
     using SafeTransferLib for ERC20;
+    using SafeCastLib for uint256;
 
     error CycleError();
     error EmptyGaugesError();
@@ -79,7 +82,7 @@ contract FlywheelGaugeRewards is Auth, BaseFlywheelRewards {
         gaugeCycleLength = _gaugeToken.gaugeCycleLength();
 
         // seed initial gaugeCycle
-        gaugeCycle = uint32(block.timestamp) / gaugeCycleLength * gaugeCycleLength;
+        gaugeCycle = block.timestamp.safeCastTo32() / gaugeCycleLength * gaugeCycleLength;
 
         gaugeToken = _gaugeToken;
 
@@ -94,7 +97,7 @@ contract FlywheelGaugeRewards is Auth, BaseFlywheelRewards {
     */
     function queueRewardsForCycle() external requiresAuth returns (uint256 totalQueuedForCycle) {
         // next cycle is always the next even divisor of the cycle length above current block timestamp.
-        uint32 currentCycle = uint32(block.timestamp) / gaugeCycleLength * gaugeCycleLength;
+        uint32 currentCycle = block.timestamp.safeCastTo32() / gaugeCycleLength * gaugeCycleLength;
         uint32 lastCycle = gaugeCycle;  // SLOAD
 
         // ensure new cycle has begun
@@ -124,7 +127,7 @@ contract FlywheelGaugeRewards is Auth, BaseFlywheelRewards {
     */
     function queueRewardsForCyclePaginated(uint256 numRewards) external requiresAuth {
         // next cycle is always the next even divisor of the cycle length above current block timestamp.
-        uint32 currentCycle = uint32(block.timestamp) / gaugeCycleLength * gaugeCycleLength;
+        uint32 currentCycle = block.timestamp.safeCastTo32() / gaugeCycleLength * gaugeCycleLength;
         uint32 lastCycle = gaugeCycle;
 
         // ensure new cycle has begun
@@ -141,9 +144,10 @@ contract FlywheelGaugeRewards is Auth, BaseFlywheelRewards {
         if (offset == 0) {
             // queue the rewards stream and sanity check the tokens were received
             uint256 balanceBefore = rewardToken.balanceOf(address(this));
-            uint112 newRewards = uint112(rewardsStream.getRewards());
+            uint256 newRewards = rewardsStream.getRewards();
             require(rewardToken.balanceOf(address(this)) - balanceBefore >= newRewards);
-            nextCycleQueuedRewards += newRewards; // in case a previous incomplete cycle had rewards, add on
+            require(newRewards <= type(uint112).max); // safe cast
+            nextCycleQueuedRewards += uint112(newRewards); // in case a previous incomplete cycle had rewards, add on
         }
 
         uint112 queued = nextCycleQueuedRewards;
@@ -157,7 +161,7 @@ contract FlywheelGaugeRewards is Auth, BaseFlywheelRewards {
             nextCycleQueuedRewards = 0;
             paginationOffset = 0;
         } else {
-            paginationOffset = offset + uint32(numRewards);
+            paginationOffset = offset + numRewards.safeCastTo32();
         }
 
         // iterate over all gauges and update the rewards allocations
@@ -181,11 +185,13 @@ contract FlywheelGaugeRewards is Auth, BaseFlywheelRewards {
             assert(queuedRewards.storedCycle == 0 || queuedRewards.storedCycle >= lastCycle);
 
             uint112 completedRewards = queuedRewards.storedCycle == lastCycle ? queuedRewards.cycleRewards : 0;
-            
+            uint256 nextRewards = gaugeToken.calculateGaugeAllocation(address(gauge), totalQueuedForCycle);
+            require(nextRewards <= type(uint112).max); // safe cast
+
             // SSTORE
             gaugeQueuedRewards[gauge] = QueuedRewards({
                 priorCycleRewards: queuedRewards.priorCycleRewards + completedRewards,
-                cycleRewards: uint112(gaugeToken.calculateGaugeAllocation(address(gauge), totalQueuedForCycle)),
+                cycleRewards: uint112(nextRewards),
                 storedCycle: currentCycle
             });
         }
@@ -196,11 +202,9 @@ contract FlywheelGaugeRewards is Auth, BaseFlywheelRewards {
      @param gauge the gauge to accrue rewards for
      @param lastUpdatedTimestamp the last updated time for gauge
      @return accruedRewards the amount of reward tokens accrued.
-
-     GAS: Average path includes 2 SLOAD, 1 warm SSTORE.
     */
     function getAccruedRewards(ERC20 gauge, uint32 lastUpdatedTimestamp) external override onlyFlywheel returns (uint256 accruedRewards) {
-        QueuedRewards memory queuedRewards = gaugeQueuedRewards[gauge]; // SLOAD
+        QueuedRewards memory queuedRewards = gaugeQueuedRewards[gauge];
 
         uint32 cycle = gaugeCycle;
         bool incompleteCycle = queuedRewards.storedCycle > cycle;
@@ -230,7 +234,7 @@ contract FlywheelGaugeRewards is Auth, BaseFlywheelRewards {
             uint32 beginning = lastUpdatedTimestamp > cycle ? lastUpdatedTimestamp : cycle;
 
             // otherwise, return proportion of remaining rewards in cycle
-            uint32 elapsed = uint32(block.timestamp) - beginning;
+            uint32 elapsed = block.timestamp.safeCastTo32() - beginning;
             uint32 remaining = cycleEnd - beginning;
                 
             uint112 currentAccrued = queuedRewards.cycleRewards * elapsed / remaining;

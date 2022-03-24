@@ -4,6 +4,7 @@ pragma solidity 0.8.10;
 import {ERC20} from "solmate/tokens/ERC20.sol";
 import {Auth, Authority} from "solmate/auth/Auth.sol";
 import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
+import {SafeCastLib} from "solmate/utils/SafeCastLib.sol";
 
 import {IFlywheelRewards} from "./interfaces/IFlywheelRewards.sol";
 import {IFlywheelBooster} from "./interfaces/IFlywheelBooster.sol";
@@ -25,6 +26,7 @@ import {IFlywheelBooster} from "./interfaces/IFlywheelBooster.sol";
  */
 contract FlywheelCore is Auth {
     using SafeTransferLib for ERC20;
+    using SafeCastLib for uint256;
 
     /// @notice The token to reward
     ERC20 public immutable rewardToken;
@@ -134,7 +136,7 @@ contract FlywheelCore is Auth {
         require(strategyState[strategy].index == 0, "strategy");
         strategyState[strategy] = RewardsState({
             index: ONE,
-            lastUpdatedTimestamp: uint32(block.timestamp)
+            lastUpdatedTimestamp: block.timestamp.safeCastTo32()
         });
 
         emit AddStrategy(address(strategy));
@@ -198,10 +200,14 @@ contract FlywheelCore is Auth {
             // use the booster or token supply to calculate reward index denominator
             uint256 supplyTokens = address(flywheelBooster) != address(0) ? flywheelBooster.boostedTotalSupply(strategy): strategy.totalSupply();
 
+            uint224 deltaIndex;
+            
+            if (supplyTokens != 0) deltaIndex = (strategyRewardsAccrued * ONE / supplyTokens).safeCastTo224();
+
             // accumulate rewards per token onto the index, multiplied by fixed-point factor
             rewardsState = RewardsState({
-                index: state.index + uint224(strategyRewardsAccrued * ONE / supplyTokens),
-                lastUpdatedTimestamp: uint32(block.timestamp)
+                index: state.index + deltaIndex,
+                lastUpdatedTimestamp: block.timestamp.safeCastTo32()
             });
             strategyState[strategy] = rewardsState;
         }
@@ -210,11 +216,11 @@ contract FlywheelCore is Auth {
     /// @notice accumulate rewards on a strategy for a specific user
     function accrueUser(ERC20 strategy, address user, RewardsState memory state) private returns (uint256) {
         // load indices
-        uint224 supplyIndex = state.index;
+        uint224 strategyIndex = state.index;
         uint224 supplierIndex = userIndex[strategy][user];
 
         // sync user index to global
-        userIndex[strategy][user] = supplyIndex;
+        userIndex[strategy][user] = strategyIndex;
 
         // if user hasn't yet accrued rewards, grant them interest from the strategy beginning if they have a balance
         // zero balances will have no effect other than syncing to global index
@@ -222,7 +228,7 @@ contract FlywheelCore is Auth {
             supplierIndex = ONE;
         }
 
-        uint224 deltaIndex = supplyIndex - supplierIndex;
+        uint224 deltaIndex = strategyIndex - supplierIndex;
         // use the booster or token balance to calculate reward balance multiplier
         uint256 supplierTokens = address(flywheelBooster) != address(0) ? flywheelBooster.boostedBalanceOf(strategy, user) : strategy.balanceOf(user);
 
@@ -232,7 +238,7 @@ contract FlywheelCore is Auth {
         
         rewardsAccrued[user] = supplierAccrued;
 
-        emit AccrueRewards(strategy, user, supplierDelta, supplyIndex);
+        emit AccrueRewards(strategy, user, supplierDelta, strategyIndex);
 
         return supplierAccrued;
     }
