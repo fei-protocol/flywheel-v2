@@ -118,12 +118,17 @@ abstract contract ERC20Gauges is ERC20, Auth {
                               VIEW HELPERS
     //////////////////////////////////////////////////////////////*/
 
+    /// @notice return the end of the current cycle. This is the next unix timestamp which evenly divides `gaugeCycleLength`
     function getCurrentCycle() public view returns(uint32) {
         return _getCurrentCycle();
     }
 
+    /// @notice see `getCurrentCycle()`
     function _getCurrentCycle() internal view returns(uint32) {
-        return (block.timestamp.safeCastTo32() + gaugeCycleLength) / gaugeCycleLength * gaugeCycleLength;
+        uint32 nowPlusOneCycle = block.timestamp.safeCastTo32() + gaugeCycleLength;
+        unchecked {
+            return nowPlusOneCycle / gaugeCycleLength * gaugeCycleLength; // cannot divide by zero and always <= nowPlusOneCycle so no overflow
+        }
     }
 
     /// @notice returns the current weight of a given gauge
@@ -131,11 +136,12 @@ abstract contract ERC20Gauges is ERC20, Auth {
         return _getGaugeWeight[gauge].currentWeight;
     }
 
-    /// @notice returns the stored weight of a given gauge
+    /// @notice returns the stored weight of a given gauge. This is the snapshotted weight as-of the end of the last cycle.
     function getStoredGaugeWeight(address gauge) public view returns(uint112) {
         return _getStoredWeight(_getGaugeWeight[gauge], _getCurrentCycle());
     }
 
+    /// @notice see `getStoredGaugeWeight()`
     function _getStoredWeight(Weight storage gaugeWeight, uint32 currentCycle) internal view returns(uint112) {
         return gaugeWeight.currentCycle < currentCycle ? gaugeWeight.currentWeight : gaugeWeight.storedWeight;
     }
@@ -249,7 +255,9 @@ abstract contract ERC20Gauges is ERC20, Auth {
 
     function _incrementGaugeWeight(address user, address gauge, uint112 weight, uint32 cycle) internal {
         if (!_gauges.contains(gauge)) revert InvalidGaugeError();
-        if (cycle - block.timestamp <= incrementFreezeWindow) revert IncrementFreezeError();
+        unchecked {
+            if (cycle - block.timestamp <= incrementFreezeWindow) revert IncrementFreezeError();
+        }
         
         bool added = _userGauges[user].add(gauge); // idempotent add
         if (added && _userGauges[user].length() > maxGauges && !canContractExceedMaxGauges[user]) revert MaxGaugeError();
@@ -289,12 +297,15 @@ abstract contract ERC20Gauges is ERC20, Auth {
         uint32 currentCycle = getCurrentCycle();
 
         // Update gauge specific state
-        for (uint256 i = 0; i < size; i++) {
+        for (uint256 i = 0; i < size;) {
             address gauge = gaugeList[i];
             uint112 weight = weights[i];
             weightsSum += weight;
 
             _incrementGaugeWeight(msg.sender, gauge, weight, currentCycle);
+            unchecked {
+                i++;
+            }
         }
         return _incrementUserAndGlobalWeights(msg.sender, weightsSum, currentCycle);
     }
@@ -351,25 +362,34 @@ abstract contract ERC20Gauges is ERC20, Auth {
 
         // Update gauge specific state
         // All operations will revert on underflow, protecting against bad inputs
-        for (uint256 i = 0; i < size; i++) {
+        for (uint256 i = 0; i < size;) {
             address gauge = gaugeList[i];
             uint112 weight = weights[i];
             weightsSum += weight;
 
             _decrementGaugeWeight(msg.sender, gauge, weight, currentCycle);
+            unchecked {
+                i++;
+            }
         }
         return _decrementUserAndGlobalWeights(msg.sender, weightsSum, currentCycle);
     }
 
+    /**
+     @dev this function is the key to the entire contract.
+     The storage weight it operates on is either a global or gauge-specific weight.
+     The operation applied is either addition for incrementing gauges or subtraction for decrementing a gauge.
+    */
     function _writeGaugeWeight(
         Weight storage weight,
         function(uint112, uint112) view returns (uint112) op,
         uint112 delta,
         uint32 cycle
     ) private {
-        uint112 previousCurrent = weight.currentWeight;
-        uint112 stored = weight.currentCycle < cycle ? previousCurrent : weight.storedWeight;
-        uint112 newWeight = op(previousCurrent, delta);
+        uint112 currentWeight = weight.currentWeight;
+        // If the last cycle of the weight is before the current cycle, use the current weight as the stored.
+        uint112 stored = weight.currentCycle < cycle ? currentWeight : weight.storedWeight;
+        uint112 newWeight = op(currentWeight, delta);
 
         weight.storedWeight = stored;
         weight.currentWeight = newWeight;
@@ -496,7 +516,7 @@ abstract contract ERC20Gauges is ERC20, Auth {
 
         // Free gauges until through entire list or under weight
         uint256 size = gaugeList.length;
-        for (uint256 i = 0; i < size && (userFreeWeight + totalFreed) < weight; i++) {
+        for (uint256 i = 0; i < size && (userFreeWeight + totalFreed) < weight;) {
             address gauge = gaugeList[i];
             uint112 userGaugeWeight = getUserGaugeWeight[user][gauge];
             if (userGaugeWeight != 0) {
@@ -506,6 +526,10 @@ abstract contract ERC20Gauges is ERC20, Auth {
                 }
                 userFreed += userGaugeWeight;
                 _decrementGaugeWeight(user, gauge, userGaugeWeight, currentCycle);
+
+                unchecked {
+                    i++;
+                }
             }
         }
 
