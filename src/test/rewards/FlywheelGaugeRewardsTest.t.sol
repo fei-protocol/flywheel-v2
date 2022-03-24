@@ -31,7 +31,7 @@ contract FlywheelGaugeRewardsTest is DSTestPlus {
         rewardsStream = new MockRewardsStream(rewardToken, 100e18);
         rewardToken.mint(address(rewardsStream), 100e25);
 
-        gaugeToken = new MockERC20Gauges(address(this), 1000);
+        gaugeToken = new MockERC20Gauges(address(this), 1000, 100);
         gaugeToken.setMaxGauges(10);
         gaugeToken.mint(address(this), 100e18);
 

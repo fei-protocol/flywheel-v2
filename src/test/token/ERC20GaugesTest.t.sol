@@ -11,7 +11,7 @@ contract ERC20GaugesTest is DSTestPlus {
     address constant gauge2 = address(0xBEEF);
 
     function setUp() public {
-        token = new MockERC20Gauges(address(this), 3600); // 1 hour cycles
+        token = new MockERC20Gauges(address(this), 3600, 600); // 1 hour cycles, 10 minute freeze
     }
 
     /*///////////////////////////////////////////////////////////////
@@ -195,6 +195,20 @@ contract ERC20GaugesTest is DSTestPlus {
             }
         }
     }   
+
+    function testIncrementDuringFreeze(uint112 amount, uint128 cycleOffset) public {
+        hevm.assume(amount != 0);
+
+        token.mint(address(this), amount);
+        token.setMaxGauges(1);
+        token.addGauge(gauge1);
+
+        // any timestamp in freeze window is unable to increment
+        hevm.warp(token.getCurrentCycle() - (cycleOffset % token.incrementFreezeWindow()) - 1); 
+
+        hevm.expectRevert(abi.encodeWithSignature("IncrementFreezeError()"));
+        token.incrementGauge(gauge1, amount);
+    }
 
     /// @notice test incrementing over user max
     function testIncrementOverMax() public {
