@@ -116,7 +116,7 @@ abstract contract ERC20Gauges is ERC20, Auth {
     }
 
     function _getCurrentCycle() internal view returns(uint32) {
-        return (uint32(block.timestamp) + gaugeCycleLength) / gaugeCycleLength * gaugeCycleLength;
+        return (block.timestamp.safeCastTo32() + gaugeCycleLength) / gaugeCycleLength * gaugeCycleLength;
     }
 
     /// @notice returns the current weight of a given gauge
