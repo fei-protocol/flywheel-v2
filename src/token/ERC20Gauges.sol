@@ -361,9 +361,10 @@ abstract contract ERC20Gauges is ERC20, Auth {
     ) private {
         uint112 previousCurrent = weight.currentWeight;
         uint112 stored = weight.currentCycle < cycle ? previousCurrent : weight.storedWeight;
+        uint112 newWeight = op(previousCurrent, delta);
 
         weight.storedWeight = stored;
-        weight.currentWeight = op(previousCurrent, delta);
+        weight.currentWeight = newWeight;
         weight.currentCycle = cycle;
     }
 
