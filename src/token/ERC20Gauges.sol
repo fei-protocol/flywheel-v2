@@ -46,6 +46,8 @@ abstract contract ERC20Gauges is ERC20, Auth {
 
     error NonContractError();
 
+    error IncrementFreezeError();
+
     /*///////////////////////////////////////////////////////////////
                                 EVENTS
     //////////////////////////////////////////////////////////////*/
@@ -68,6 +70,9 @@ abstract contract ERC20Gauges is ERC20, Auth {
 
     /// @notice the length of a gauge cycle
     uint32 public immutable gaugeCycleLength;
+
+    /// @notice the period at the end of a cycle where votes cannot increment
+    uint32 public immutable incrementFreezeWindow;
 
     struct Weight {
         uint112 storedWeight;
@@ -103,8 +108,10 @@ abstract contract ERC20Gauges is ERC20, Auth {
     EnumerableSet.AddressSet internal _deprecatedGauges;
 
 
-    constructor(uint32 _gaugeCycleLength) {
+    constructor(uint32 _gaugeCycleLength, uint32 _incrementFreezeWindow) {
+        if (_incrementFreezeWindow >= _gaugeCycleLength) revert IncrementFreezeError();
         gaugeCycleLength = _gaugeCycleLength;
+        incrementFreezeWindow = _incrementFreezeWindow;
     }
 
     /*///////////////////////////////////////////////////////////////
@@ -126,7 +133,7 @@ abstract contract ERC20Gauges is ERC20, Auth {
 
     /// @notice returns the stored weight of a given gauge
     function getStoredGaugeWeight(address gauge) public view returns(uint112) {
-        return _getStoredWeight(_getGaugeWeight[gauge], getCurrentCycle());
+        return _getStoredWeight(_getGaugeWeight[gauge], _getCurrentCycle());
     }
 
     function _getStoredWeight(Weight storage gaugeWeight, uint32 currentCycle) internal view returns(uint112) {
@@ -140,7 +147,7 @@ abstract contract ERC20Gauges is ERC20, Auth {
 
     /// @notice returns the stored total allocated weight
     function storedTotalWeight() external view returns(uint112) {
-        return _getStoredWeight(_totalWeight, getCurrentCycle());
+        return _getStoredWeight(_totalWeight, _getCurrentCycle());
     }
 
     /// @notice returns the set of live gauges
@@ -242,6 +249,7 @@ abstract contract ERC20Gauges is ERC20, Auth {
 
     function _incrementGaugeWeight(address user, address gauge, uint112 weight, uint32 cycle) internal {
         if (!_gauges.contains(gauge)) revert InvalidGaugeError();
+        if (cycle - block.timestamp <= incrementFreezeWindow) revert IncrementFreezeError();
         
         bool added = _userGauges[user].add(gauge); // idempotent add
         if (added && _userGauges[user].length() > maxGauges && !canContractExceedMaxGauges[user]) revert MaxGaugeError();
