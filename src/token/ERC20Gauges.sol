@@ -248,7 +248,7 @@ abstract contract ERC20Gauges is ERC20, Auth {
      @return newUserWeight the new user weight
     */
     function incrementGauge(address gauge, uint112 weight) external returns(uint112 newUserWeight) {
-        uint32 currentCycle = getCurrentCycle();
+        uint32 currentCycle = _getCurrentCycle();
         _incrementGaugeWeight(msg.sender, gauge, weight, currentCycle);
         return _incrementUserAndGlobalWeights(msg.sender, weight, currentCycle);
     } 
@@ -294,7 +294,7 @@ abstract contract ERC20Gauges is ERC20, Auth {
         // store total in summary for batch update on user/global state
         uint112 weightsSum;
 
-        uint32 currentCycle = getCurrentCycle();
+        uint32 currentCycle = _getCurrentCycle();
 
         // Update gauge specific state
         for (uint256 i = 0; i < size;) {
@@ -317,7 +317,7 @@ abstract contract ERC20Gauges is ERC20, Auth {
      @return newUserWeight the new user weight
     */
     function decrementGauge(address gauge, uint112 weight) external returns (uint112 newUserWeight) {
-        uint32 currentCycle = getCurrentCycle();
+        uint32 currentCycle = _getCurrentCycle();
         
         // All operations will revert on underflow, protecting against bad inputs
         _decrementGaugeWeight(msg.sender, gauge, weight, currentCycle);
@@ -358,7 +358,7 @@ abstract contract ERC20Gauges is ERC20, Auth {
         // store total in summary for batch update on user/global state
         uint112 weightsSum;
 
-        uint32 currentCycle = getCurrentCycle();
+        uint32 currentCycle = _getCurrentCycle();
 
         // Update gauge specific state
         // All operations will revert on underflow, protecting against bad inputs
@@ -418,7 +418,7 @@ abstract contract ERC20Gauges is ERC20, Auth {
         if (gauge == address(0) || !_gauges.add(gauge)) revert InvalidGaugeError();
         _deprecatedGauges.remove(gauge); // silently remove gauge from deprecated if present
 
-        uint32 currentCycle = getCurrentCycle();
+        uint32 currentCycle = _getCurrentCycle();
 
         // Check if some previous weight exists and re-add to total. Gauge and user weights are preserved.
         uint112 weight = _getGaugeWeight[gauge].currentWeight;
@@ -439,7 +439,7 @@ abstract contract ERC20Gauges is ERC20, Auth {
         if (!_gauges.remove(gauge)) revert InvalidGaugeError(); 
         _deprecatedGauges.add(gauge); // add gauge to deprecated. Must not be present if previously in live set.
 
-        uint32 currentCycle = getCurrentCycle();
+        uint32 currentCycle = _getCurrentCycle();
 
         // Remove weight from total but keep the gauge and user weights in storage in case gauge is re-added.
         uint112 weight = _getGaugeWeight[gauge].currentWeight;
@@ -505,7 +505,7 @@ abstract contract ERC20Gauges is ERC20, Auth {
         // early return if already free
         if (userFreeWeight >= weight) return;
 
-        uint32 currentCycle = getCurrentCycle();
+        uint32 currentCycle = _getCurrentCycle();
 
         // cache totals for batch updates
         uint112 userFreed;
