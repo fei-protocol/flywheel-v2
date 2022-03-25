@@ -6,6 +6,7 @@ import "solmate/auth/Auth.sol";
 import "solmate/tokens/ERC20.sol";
 import "solmate/utils/SafeCastLib.sol";
 import "../../lib/EnumerableSet.sol";
+import "../interfaces/Errors.sol";
 
 /** 
  @title  An ERC20 with an embedded "Gauge" style vote with liquid weights
@@ -43,8 +44,6 @@ abstract contract ERC20Gauges is ERC20, Auth {
     error MaxGaugeError();
 
     error OverWeightError();
-
-    error NonContractError();
 
     error IncrementFreezeError();
 

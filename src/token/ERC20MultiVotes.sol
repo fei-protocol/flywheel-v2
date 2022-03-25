@@ -7,6 +7,7 @@ import "solmate/auth/Auth.sol";
 import "solmate/tokens/ERC20.sol";
 import "solmate/utils/SafeCastLib.sol";
 import "../../lib/EnumerableSet.sol";
+import "../interfaces/Errors.sol";
 
 /**
  @title ERC20 Multi-Delegation Voting contract
@@ -102,9 +103,6 @@ abstract contract ERC20MultiVotes is ERC20, Auth {
 
     /// @notice emitted when updating the canContractExceedMaxDelegates flag for an account
     event CanContractExceedMaxDelegatesUpdate(address indexed account, bool canContractExceedMaxDelegates);
-
-    /// @notice thrown when attempting to approve an EOA to exceed max delegations
-    error NonContractError();
 
     /// @notice the maximum amount of delegates for a user at a given time
     uint256 public maxDelegates;
