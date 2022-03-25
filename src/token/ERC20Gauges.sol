@@ -465,7 +465,7 @@ abstract contract ERC20Gauges is ERC20, Auth {
 
     /// @notice set the canContractExceedMaxGauges flag for an account.
     function setContractExceedMaxGauges(address account, bool canExceedMax) external requiresAuth {
-        if(canExceedMax && account.code.length == 0) revert NonContractError(); // can only approve contracts
+        if(canExceedMax && account.code.length == 0) revert Errors.NonContractError(); // can only approve contracts
         
         canContractExceedMaxGauges[account] = canExceedMax;
 

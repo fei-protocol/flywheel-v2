@@ -120,7 +120,7 @@ abstract contract ERC20MultiVotes is ERC20, Auth {
 
     /// @notice set the canContractExceedMaxDelegates flag for an account.
     function setContractExceedMaxDelegates(address account, bool canExceedMax) external requiresAuth {
-        if(canExceedMax && account.code.length == 0) revert NonContractError(); // can only approve contracts
+        if(canExceedMax && account.code.length == 0) revert Errors.NonContractError(); // can only approve contracts
         
         canContractExceedMaxDelegates[account] = canExceedMax;
 
