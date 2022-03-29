@@ -33,35 +33,11 @@ abstract contract ERC20Gauges is ERC20, Auth {
     using EnumerableSet for EnumerableSet.AddressSet;
     using SafeCastLib for *;
 
-    /*///////////////////////////////////////////////////////////////
-                            CUSTOM ERRORS
-    //////////////////////////////////////////////////////////////*/
-
-    error InvalidGaugeError();
-
-    error SizeMismatchError();
-
-    error MaxGaugeError();
-
-    error OverWeightError();
-
-    error IncrementFreezeError();
-
-    /*///////////////////////////////////////////////////////////////
-                                EVENTS
-    //////////////////////////////////////////////////////////////*/
-
-    event IncrementGaugeWeight(address indexed user, address indexed gauge, uint256 weight);
-
-    event DecrementGaugeWeight(address indexed user, address indexed gauge, uint256 weight);
-
-    event AddGauge(address indexed gauge);
-
-    event RemoveGauge(address indexed gauge);
-
-    event MaxGaugesUpdate(uint256 oldMaxGauges, uint256 newMaxGauges);
-
-    event CanContractExceedMaxGaugesUpdate(address indexed account, bool canContractExceedMaxGauges);
+    constructor(uint32 _gaugeCycleLength, uint32 _incrementFreezeWindow) {
+        if (_incrementFreezeWindow >= _gaugeCycleLength) revert IncrementFreezeError();
+        gaugeCycleLength = _gaugeCycleLength;
+        incrementFreezeWindow = _incrementFreezeWindow;
+    }
 
     /*///////////////////////////////////////////////////////////////
                         GAUGE STATE
@@ -78,12 +54,6 @@ abstract contract ERC20Gauges is ERC20, Auth {
         uint112 currentWeight;
         uint32 currentCycle;
     }
-
-    /// @notice the default maximum amount of gauges a user can allocate to.
-    uint256 public maxGauges;
-
-    /// @notice an approve list for contracts to go above the max gauge limit.
-    mapping(address => bool) public canContractExceedMaxGauges;
 
     /// @notice a mapping from users to gauges to a user's allocated weight to that gauge
     mapping(address => mapping(address => uint112)) public getUserGaugeWeight;
@@ -105,12 +75,6 @@ abstract contract ERC20Gauges is ERC20, Auth {
 
     // Store deprecated gauges in case a user needs to free dead weight
     EnumerableSet.AddressSet internal _deprecatedGauges;
-
-    constructor(uint32 _gaugeCycleLength, uint32 _incrementFreezeWindow) {
-        if (_incrementFreezeWindow >= _gaugeCycleLength) revert IncrementFreezeError();
-        gaugeCycleLength = _gaugeCycleLength;
-        incrementFreezeWindow = _incrementFreezeWindow;
-    }
 
     /*///////////////////////////////////////////////////////////////
                               VIEW HELPERS
@@ -253,6 +217,24 @@ abstract contract ERC20Gauges is ERC20, Auth {
                         USER GAUGE OPERATIONS
     //////////////////////////////////////////////////////////////*/
 
+    /// @notice thrown when trying to increment/decrement a mismatched number of gauges and weights.
+    error SizeMismatchError();
+
+    /// @notice thrown when trying to increment over the max allowed gauges.
+    error MaxGaugeError();
+
+    /// @notice thrown when incrementing over a users free weight.
+    error OverWeightError();
+
+    /// @notice thrown when incremending during the freeze window.
+    error IncrementFreezeError();
+
+    /// @notice emitted when incrementing a gauge
+    event IncrementGaugeWeight(address indexed user, address indexed gauge, uint256 weight, uint32 cycleEnd);
+
+    /// @notice emitted when decrementing a gauge
+    event DecrementGaugeWeight(address indexed user, address indexed gauge, uint256 weight, uint32 cycleEnd);
+
     /** 
      @notice increment a gauge with some weight for the caller
      @param gauge the gauge to increment
@@ -284,7 +266,7 @@ abstract contract ERC20Gauges is ERC20, Auth {
 
         _writeGaugeWeight(_getGaugeWeight[gauge], _add, weight, cycle);
 
-        emit IncrementGaugeWeight(user, gauge, weight);
+        emit IncrementGaugeWeight(user, gauge, weight, cycle);
     }
 
     function _incrementUserAndGlobalWeights(
@@ -364,7 +346,7 @@ abstract contract ERC20Gauges is ERC20, Auth {
 
         _writeGaugeWeight(_getGaugeWeight[gauge], _subtract, weight, cycle);
 
-        emit DecrementGaugeWeight(user, gauge, weight);
+        emit DecrementGaugeWeight(user, gauge, weight, cycle);
     }
 
     function _decrementUserAndGlobalWeights(
@@ -443,6 +425,27 @@ abstract contract ERC20Gauges is ERC20, Auth {
     /*///////////////////////////////////////////////////////////////
                         ADMIN GAUGE OPERATIONS
     //////////////////////////////////////////////////////////////*/
+
+    /// @notice thrown when trying to increment or remove a non-live gauge, or add a live gauge.
+    error InvalidGaugeError();
+
+    /// @notice emitted when adding a new gauge to the live set.
+    event AddGauge(address indexed gauge);
+
+    /// @notice emitted when removing a gauge from the live set.
+    event RemoveGauge(address indexed gauge);
+
+    /// @notice emitted when updating the max number of gauges a user can delegate to.
+    event MaxGaugesUpdate(uint256 oldMaxGauges, uint256 newMaxGauges);
+
+    /// @notice emitted when changing a contract's approval to go over the max gauges.
+    event CanContractExceedMaxGaugesUpdate(address indexed account, bool canContractExceedMaxGauges);
+
+    /// @notice the default maximum amount of gauges a user can allocate to.
+    uint256 public maxGauges;
+
+    /// @notice an approve list for contracts to go above the max gauge limit.
+    mapping(address => bool) public canContractExceedMaxGauges;
 
     /// @notice add a new gauge. Requires auth by `authority`.
     function addGauge(address gauge) external requiresAuth {
