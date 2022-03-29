@@ -237,11 +237,13 @@ contract FlywheelGaugeRewards is Auth, BaseFlywheelRewards {
             uint32 elapsed = block.timestamp.safeCastTo32() - beginning;
             uint32 remaining = cycleEnd - beginning;
                 
-            uint112 currentAccrued = queuedRewards.cycleRewards * elapsed / remaining;
+            // Casted up to avoid intermediate overflow
+            // cannot end in an overflow of uint112 because elapsed <= remaining and cycleRewards <= uint112.max
+            uint256 currentAccrued = (uint256(queuedRewards.cycleRewards) * elapsed) / remaining;
 
             // add proportion of current cycle to accrued rewards
             accruedRewards += currentAccrued;
-            cycleRewardsNext -= currentAccrued;
+            cycleRewardsNext -= uint112(currentAccrued);
         }
 
         // single SSTORE
