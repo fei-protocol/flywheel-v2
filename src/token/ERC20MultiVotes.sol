@@ -200,18 +200,26 @@ abstract contract ERC20MultiVotes is ERC20, Auth {
     }
 
     /**
-     * @notice Transfer `amount` votes from the sender's delegation of `oldDelegatee` to `newDelegatee`.
-     * @param oldDelegatee the receivier of undelegation.
+     * @notice Delegate all votes `newDelegatee`. First undelegates from an existing delegate. If `newDelegatee` is zero, only undelegates.
      * @param newDelegatee the receiver of votes.
-     * @param amount the amount of votes received.
+     * @dev undefined for `delegateCount(msg.sender) > 1`
      */
-    function redelegate(
-        address oldDelegatee,
-        address newDelegatee,
-        uint256 amount
-    ) public virtual {
-        _undelegate(msg.sender, oldDelegatee, amount);
-        _delegate(msg.sender, newDelegatee, amount);
+    function delegate(address newDelegatee) external virtual {
+        uint256 count = delegateCount(msg.sender);
+
+        // undefined behavior for delegateCount > 1
+        if (count > 1) revert DelegationError();
+
+        // if already delegated, undelegate first
+        if (count == 1) {
+            address oldDelegatee = _delegates[msg.sender].at(0);
+            _undelegate(msg.sender, oldDelegatee, _delegatesVotesCount[msg.sender][oldDelegatee]);
+        }
+
+        // redelegate only if newDelegatee is not empty
+        if (newDelegatee != address(0)) {
+            _delegate(msg.sender, newDelegatee, freeVotes(msg.sender));
+        }
     }
 
     function _delegate(
@@ -221,7 +229,7 @@ abstract contract ERC20MultiVotes is ERC20, Auth {
     ) internal virtual {
         // Require freeVotes exceed the delegation size
         uint256 free = freeVotes(delegator);
-        if (free < amount) revert DelegationError();
+        if (delegatee == address(0) || free < amount) revert DelegationError();
 
         bool newDelegate = _delegates[delegator].add(delegatee); // idempotent add
         if (newDelegate && delegateCount(delegator) > maxDelegates && !canContractExceedMaxDelegates[delegator]) {

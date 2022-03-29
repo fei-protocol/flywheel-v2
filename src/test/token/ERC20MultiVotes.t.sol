@@ -77,6 +77,14 @@ contract ERC20MultiVotesTest is DSTestPlus {
         }
     }
 
+    function testDelegateToAddressZero() public {
+        token.mint(address(this), 100e18);
+        token.setMaxDelegates(2);
+
+        hevm.expectRevert(abi.encodeWithSignature("DelegationError()"));
+        token.delegate(address(0), 50e18);
+    }
+
     function testDelegateOverVotes() public {
         token.mint(address(this), 100e18);
         token.setMaxDelegates(2);
@@ -139,19 +147,28 @@ contract ERC20MultiVotesTest is DSTestPlus {
         token.undelegate(delegate1, 51e18);
     }
 
-    function testRedelegate() public {
-        token.mint(address(this), 100e18);
+    function testRedelegate(
+        address oldDelegatee,
+        uint112 beforeDelegateAmount,
+        address newDelegatee,
+        uint112 mintAmount
+    ) public {
+        hevm.assume(mintAmount >= beforeDelegateAmount);
+        token.mint(address(this), mintAmount);
         token.setMaxDelegates(2);
 
-        token.delegate(delegate1, 4e18);
+        if (oldDelegatee == address(0)) {
+            hevm.expectRevert(abi.encodeWithSignature("DelegationError()"));
+        }
 
-        token.redelegate(delegate1, delegate2, 1e18);
-        require(token.delegatesVotesCount(address(this), delegate1) == 3e18);
-        require(token.delegatesVotesCount(address(this), delegate2) == 1e18);
-        require(token.userDelegatedVotes(address(this)) == 4e18);
-        require(token.getVotes(delegate1) == 3e18);
-        require(token.getVotes(delegate2) == 1e18);
-        require(token.freeVotes(address(this)) == 96e18);
+        token.delegate(oldDelegatee, beforeDelegateAmount);
+
+        token.delegate(newDelegatee);
+        require(oldDelegatee == newDelegatee || token.delegatesVotesCount(address(this), oldDelegatee) == 0);
+        require(token.delegatesVotesCount(address(this), newDelegatee) == mintAmount);
+        require(token.userDelegatedVotes(address(this)) == mintAmount);
+        require(token.getVotes(newDelegatee) == mintAmount);
+        require(token.freeVotes(address(this)) == 0);
     }
 
     /*///////////////////////////////////////////////////////////////
