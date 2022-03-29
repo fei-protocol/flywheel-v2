@@ -31,6 +31,9 @@ contract FlywheelCore is Auth {
     /// @notice The token to reward
     ERC20 public immutable rewardToken;
 
+    /// @notice append-only list of strategies added
+    ERC20[] public allStrategies;
+
     /// @notice the rewards contract for managing streams
     IFlywheelRewards public flywheelRewards;
 
@@ -137,10 +140,19 @@ contract FlywheelCore is Auth {
 
     /// @notice initialize a new strategy
     function addStrategyForRewards(ERC20 strategy) external requiresAuth {
+        _addStrategyForRewards(strategy);
+    }
+
+    function _addStrategyForRewards(ERC20 strategy) internal {
         require(strategyState[strategy].index == 0, "strategy");
         strategyState[strategy] = RewardsState({index: ONE, lastUpdatedTimestamp: block.timestamp.safeCastTo32()});
 
+        allStrategies.push(strategy);
         emit AddStrategy(address(strategy));
+    }
+
+    function getAllStrategies() external view returns (ERC20[] memory) {
+        return allStrategies;
     }
 
     /** 
