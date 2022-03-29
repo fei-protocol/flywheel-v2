@@ -34,10 +34,17 @@ contract FlywheelGaugeRewards is Auth, BaseFlywheelRewards {
     using SafeTransferLib for ERC20;
     using SafeCastLib for uint256;
 
+    /// @notice thrown when trying to queue a new cycle during an old one.
     error CycleError();
+
+    /// @notice thrown when trying to queue with 0 gauges
     error EmptyGaugesError();
 
-    // TODO add events
+    /// @notice emitted when a cycle has completely queued and started
+    event CycleStart(uint32 indexed cycleStart, uint256 rewardAmount);
+
+    /// @notice emitted when a single gauge is queued. May be emitted before the cycle starts if the queue is done via pagination.
+    event QueueRewards(address indexed gauge, uint32 indexed cycleStart, uint256 rewardAmount);
 
     /// @notice the start of the current cycle
     uint32 public gaugeCycle;
@@ -90,18 +97,16 @@ contract FlywheelGaugeRewards is Auth, BaseFlywheelRewards {
     /**
         @notice Iterates over all live gauges and queues up the rewards for the cycle
         @return totalQueuedForCycle the max amount of rewards to be distributed over the cycle
-
-        GAS: Average path for `n` gauges - SLOAD * (n + 7) + SSTORE * (n + 1) + 1 token transfer
     */
     function queueRewardsForCycle() external requiresAuth returns (uint256 totalQueuedForCycle) {
         // next cycle is always the next even divisor of the cycle length above current block timestamp.
         uint32 currentCycle = (block.timestamp.safeCastTo32() / gaugeCycleLength) * gaugeCycleLength;
-        uint32 lastCycle = gaugeCycle; // SLOAD
+        uint32 lastCycle = gaugeCycle;
 
         // ensure new cycle has begun
         if (currentCycle <= lastCycle) revert CycleError();
 
-        gaugeCycle = currentCycle; // SSTORE
+        gaugeCycle = currentCycle;
 
         // queue the rewards stream and sanity check the tokens were received
         uint256 balanceBefore = rewardToken.balanceOf(address(this));
@@ -112,12 +117,14 @@ contract FlywheelGaugeRewards is Auth, BaseFlywheelRewards {
         totalQueuedForCycle += nextCycleQueuedRewards;
 
         // iterate over all gauges and update the rewards allocations
-        address[] memory gauges = gaugeToken.gauges(); // n * SLOAD
+        address[] memory gauges = gaugeToken.gauges();
 
         _queueRewards(gauges, currentCycle, lastCycle, totalQueuedForCycle);
 
         nextCycleQueuedRewards = 0;
         paginationOffset = 0;
+
+        emit CycleStart(currentCycle, totalQueuedForCycle);
     }
 
     /**
@@ -158,6 +165,7 @@ contract FlywheelGaugeRewards is Auth, BaseFlywheelRewards {
             gaugeCycle = currentCycle;
             nextCycleQueuedRewards = 0;
             paginationOffset = 0;
+            emit CycleStart(currentCycle, queued);
         } else {
             paginationOffset = offset + numRewards.safeCastTo32();
         }
@@ -191,12 +199,13 @@ contract FlywheelGaugeRewards is Auth, BaseFlywheelRewards {
             uint256 nextRewards = gaugeToken.calculateGaugeAllocation(address(gauge), totalQueuedForCycle);
             require(nextRewards <= type(uint112).max); // safe cast
 
-            // SSTORE
             gaugeQueuedRewards[gauge] = QueuedRewards({
                 priorCycleRewards: queuedRewards.priorCycleRewards + completedRewards,
                 cycleRewards: uint112(nextRewards),
                 storedCycle: currentCycle
             });
+
+            emit QueueRewards(address(gauge), currentCycle, nextRewards);
         }
     }
 
@@ -253,7 +262,6 @@ contract FlywheelGaugeRewards is Auth, BaseFlywheelRewards {
             cycleRewardsNext -= uint112(currentAccrued);
         }
 
-        // single SSTORE
         gaugeQueuedRewards[gauge] = QueuedRewards({
             priorCycleRewards: 0,
             cycleRewards: cycleRewardsNext,
