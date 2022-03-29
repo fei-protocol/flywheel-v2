@@ -8,7 +8,6 @@ import {FlywheelCore} from "../../FlywheelCore.sol";
 import {FlywheelStaticRewards, Authority} from "../../rewards/FlywheelStaticRewards.sol";
 
 contract FlywheelStaticRewardsTest is DSTestPlus {
-
     FlywheelStaticRewards rewards;
 
     MockERC20 strategy;
@@ -20,8 +19,6 @@ contract FlywheelStaticRewardsTest is DSTestPlus {
         strategy = new MockERC20("test strategy", "TKN", 18);
 
         rewards = new FlywheelStaticRewards(FlywheelCore(address(this)), address(this), Authority(address(0)));
-
-
     }
 
     function testSetRewardsInfo() public {
@@ -30,7 +27,10 @@ contract FlywheelStaticRewardsTest is DSTestPlus {
         require(rewardsEndTimestamp == 0);
 
         uint32 newEnd = uint32(block.timestamp) + 100;
-        rewards.setRewardsInfo(strategy, FlywheelStaticRewards.RewardsInfo({rewardsPerSecond: 1 ether, rewardsEndTimestamp: newEnd}));
+        rewards.setRewardsInfo(
+            strategy,
+            FlywheelStaticRewards.RewardsInfo({rewardsPerSecond: 1 ether, rewardsEndTimestamp: newEnd})
+        );
 
         (rewardsPerSecond, rewardsEndTimestamp) = rewards.rewardsInfo(strategy);
 

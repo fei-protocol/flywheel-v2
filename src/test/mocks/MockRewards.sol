@@ -4,13 +4,10 @@ pragma solidity 0.8.10;
 import "../../rewards/BaseFlywheelRewards.sol";
 
 contract MockRewards is BaseFlywheelRewards {
-
     /// @notice rewards amount per strategy
     mapping(ERC20 => uint256) public rewardsAmount;
 
-    constructor(
-        FlywheelCore _flywheel
-    ) BaseFlywheelRewards(_flywheel) {}
+    constructor(FlywheelCore _flywheel) BaseFlywheelRewards(_flywheel) {}
 
     function setRewardsAmount(ERC20 strategy, uint256 amount) external {
         rewardsAmount[strategy] = amount;

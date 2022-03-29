@@ -97,7 +97,7 @@ abstract contract ERC20MultiVotes is ERC20, Auth {
     /*///////////////////////////////////////////////////////////////
                         ADMIN OPERATIONS
     //////////////////////////////////////////////////////////////*/
-    
+
     /// @notice emitted when updating the maximum amount of delegates per user
     event MaxDelegatesUpdate(uint256 oldMaxDelegates, uint256 newMaxDelegates);
 
@@ -120,8 +120,8 @@ abstract contract ERC20MultiVotes is ERC20, Auth {
 
     /// @notice set the canContractExceedMaxDelegates flag for an account.
     function setContractExceedMaxDelegates(address account, bool canExceedMax) external requiresAuth {
-        if(canExceedMax && account.code.length == 0) revert Errors.NonContractError(); // can only approve contracts
-        
+        if (canExceedMax && account.code.length == 0) revert Errors.NonContractError(); // can only approve contracts
+
         canContractExceedMaxDelegates[account] = canExceedMax;
 
         emit CanContractExceedMaxDelegatesUpdate(account, canExceedMax);
@@ -133,7 +133,7 @@ abstract contract ERC20MultiVotes is ERC20, Auth {
 
     /// @dev Emitted when a `delegator` delegates `amount` votes to `delegate`.
     event Delegation(address indexed delegator, address indexed delegate, uint256 amount);
-    
+
     /// @dev Emitted when a `delegator` undelegates `amount` votes from `delegate`.
     event Undelegation(address indexed delegator, address indexed delegate, uint256 amount);
 
@@ -189,7 +189,7 @@ abstract contract ERC20MultiVotes is ERC20, Auth {
     function delegate(address delegatee, uint256 amount) public virtual {
         _delegate(msg.sender, delegatee, amount);
     }
-    
+
     /**
      * @notice Undelegate `amount` votes from the sender from `delegatee`.
      * @param delegatee the receivier of undelegation.
@@ -205,13 +205,20 @@ abstract contract ERC20MultiVotes is ERC20, Auth {
      * @param newDelegatee the receiver of votes.
      * @param amount the amount of votes received.
      */
-    function redelegate(address oldDelegatee, address newDelegatee, uint256 amount) public virtual {
+    function redelegate(
+        address oldDelegatee,
+        address newDelegatee,
+        uint256 amount
+    ) public virtual {
         _undelegate(msg.sender, oldDelegatee, amount);
         _delegate(msg.sender, newDelegatee, amount);
     }
 
-    function _delegate(address delegator, address delegatee, uint256 amount) internal virtual {
-        
+    function _delegate(
+        address delegator,
+        address delegatee,
+        uint256 amount
+    ) internal virtual {
         // Require freeVotes exceed the delegation size
         uint256 free = freeVotes(delegator);
         if (free < amount) revert DelegationError();
@@ -229,13 +236,17 @@ abstract contract ERC20MultiVotes is ERC20, Auth {
         _writeCheckpoint(delegatee, _add, amount);
     }
 
-    function _undelegate(address delegator, address delegatee, uint256 amount) internal virtual {
+    function _undelegate(
+        address delegator,
+        address delegatee,
+        uint256 amount
+    ) internal virtual {
         uint256 newDelegates = _delegatesVotesCount[delegator][delegatee] - amount;
 
         if (newDelegates == 0) {
             assert(_delegates[delegator].remove(delegatee)); // Should never fail.
         }
-        
+
         _delegatesVotesCount[delegator][delegatee] = newDelegates;
         userDelegatedVotes[delegator] -= amount;
 
@@ -278,18 +289,21 @@ abstract contract ERC20MultiVotes is ERC20, Auth {
     /// _decrementVotesUntilFree is called as a greedy algorithm to free up votes.
     /// It may be more gas efficient to free weight before burning or transferring tokens.
 
-
     function _burn(address from, uint256 amount) internal virtual override {
         _decrementVotesUntilFree(from, amount);
         super._burn(from, amount);
     }
 
-    function transfer(address to, uint256 amount) public virtual override returns(bool) {
+    function transfer(address to, uint256 amount) public virtual override returns (bool) {
         _decrementVotesUntilFree(msg.sender, amount);
         return super.transfer(to, amount);
     }
 
-    function transferFrom(address from, address to, uint256 amount) public virtual override returns(bool) {
+    function transferFrom(
+        address from,
+        address to,
+        uint256 amount
+    ) public virtual override returns (bool) {
         _decrementVotesUntilFree(from, amount);
         return super.transferFrom(from, to, amount);
     }
@@ -315,10 +329,9 @@ abstract contract ERC20MultiVotes is ERC20, Auth {
             uint256 delegateVotes = _delegatesVotesCount[user][delegatee];
             if (delegateVotes != 0) {
                 totalFreed += delegateVotes;
-                
+
                 assert(_delegates[user].remove(delegatee)); // Remove from set. Should never fail.
 
-                
                 _delegatesVotesCount[user][delegatee] = 0;
 
                 _writeCheckpoint(delegatee, _subtract, delegateVotes);

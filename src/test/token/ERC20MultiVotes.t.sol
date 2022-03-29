@@ -5,7 +5,6 @@ import {DSTestPlus} from "solmate/test/utils/DSTestPlus.sol";
 import {MockERC20MultiVotes, ERC20MultiVotes} from "../mocks/MockERC20MultiVotes.sol";
 
 contract ERC20MultiVotesTest is DSTestPlus {
-
     MockERC20MultiVotes token;
     address constant delegate1 = address(0xDEAD);
     address constant delegate2 = address(0xBEEF);
@@ -50,7 +49,11 @@ contract ERC20MultiVotesTest is DSTestPlus {
     //////////////////////////////////////////////////////////////*/
 
     /// @notice test delegating different delegatees 8 times by multiple users and amounts
-    function testDelegate(address[8] memory from, address[8] memory delegates, uint224[8] memory amounts) public {
+    function testDelegate(
+        address[8] memory from,
+        address[8] memory delegates,
+        uint224[8] memory amounts
+    ) public {
         token.setMaxDelegates(8);
 
         unchecked {
@@ -58,7 +61,7 @@ contract ERC20MultiVotesTest is DSTestPlus {
             for (uint256 i = 0; i < 8; i++) {
                 hevm.assume(sum + amounts[i] >= sum && from[i] != address(0) && delegates[i] != address(0));
                 sum += amounts[i];
-                
+
                 token.mint(from[i], amounts[i]);
 
                 uint256 userDelegatedBefore = token.userDelegatedVotes(from[i]);
@@ -72,14 +75,14 @@ contract ERC20MultiVotesTest is DSTestPlus {
                 require(token.getVotes(delegates[i]) == votesBefore + amounts[i]);
             }
         }
-    }   
+    }
 
     function testDelegateOverVotes() public {
         token.mint(address(this), 100e18);
         token.setMaxDelegates(2);
 
         token.delegate(delegate1, 50e18);
-        hevm.expectRevert(abi.encodeWithSignature("DelegationError()"));   
+        hevm.expectRevert(abi.encodeWithSignature("DelegationError()"));
         token.delegate(delegate2, 51e18);
     }
 
@@ -89,7 +92,7 @@ contract ERC20MultiVotesTest is DSTestPlus {
 
         token.delegate(delegate1, 50e18);
         token.delegate(delegate2, 1e18);
-        hevm.expectRevert(abi.encodeWithSignature("DelegationError()"));   
+        hevm.expectRevert(abi.encodeWithSignature("DelegationError()"));
         token.delegate(address(this), 1e18);
     }
 
@@ -125,7 +128,7 @@ contract ERC20MultiVotesTest is DSTestPlus {
         require(token.userDelegatedVotes(address(this)) == 0);
         require(token.getVotes(delegate1) == 0);
         require(token.freeVotes(address(this)) == 100e18);
-    }   
+    }
 
     function testDecrementOverWeight() public {
         token.mint(address(this), 100e18);
@@ -136,7 +139,7 @@ contract ERC20MultiVotesTest is DSTestPlus {
         token.undelegate(delegate1, 51e18);
     }
 
-    function testRedelegate() public {  
+    function testRedelegate() public {
         token.mint(address(this), 100e18);
         token.setMaxDelegates(2);
 
@@ -154,7 +157,7 @@ contract ERC20MultiVotesTest is DSTestPlus {
     /*///////////////////////////////////////////////////////////////
                             TEST PAST VOTES
     //////////////////////////////////////////////////////////////*/
-    
+
     function testPastVotes() public {
         token.mint(address(this), 100e18);
         token.setMaxDelegates(2);
@@ -183,7 +186,7 @@ contract ERC20MultiVotesTest is DSTestPlus {
         token.undelegate(delegate1, 2e18);
 
         require(token.numCheckpoints(delegate1) == 2); // new checkpint
-        
+
         // checkpoint 1 stays same
         checkpoint1 = token.checkpoints(delegate1, 0);
         require(checkpoint1.fromBlock == block1);
@@ -202,7 +205,7 @@ contract ERC20MultiVotesTest is DSTestPlus {
         token.delegate(delegate1, 4e18);
 
         require(token.numCheckpoints(delegate1) == 3); // new checkpint
-        
+
         // checkpoint 1 stays same
         checkpoint1 = token.checkpoints(delegate1, 0);
         require(checkpoint1.fromBlock == block1);
@@ -226,7 +229,7 @@ contract ERC20MultiVotesTest is DSTestPlus {
 
         hevm.expectRevert(abi.encodeWithSignature("BlockError()"));
         token.getPastVotes(delegate1, block3); // revert same block
-        
+
         hevm.roll(11);
         require(token.getPastVotes(delegate1, block3) == 10e18);
     }

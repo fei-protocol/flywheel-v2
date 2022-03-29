@@ -5,7 +5,6 @@ import {DSTestPlus} from "solmate/test/utils/DSTestPlus.sol";
 import {MockERC20Gauges} from "../mocks/MockERC20Gauges.sol";
 
 contract ERC20GaugesTest is DSTestPlus {
-
     MockERC20Gauges token;
     address constant gauge1 = address(0xDEAD);
     address constant gauge2 = address(0xBEEF);
@@ -68,7 +67,7 @@ contract ERC20GaugesTest is DSTestPlus {
         require(token.numGauges() == 1);
         require(token.totalWeight() == amount);
         require(token.getGaugeWeight(gauge1) == amount);
-        require(token.getUserGaugeWeight(address(this), gauge1) == amount);  
+        require(token.getUserGaugeWeight(address(this), gauge1) == amount);
         require(token.deprecatedGauges().length == 0);
     }
 
@@ -126,11 +125,11 @@ contract ERC20GaugesTest is DSTestPlus {
 
     function testReplaceGauge() public {
         token.setMaxGauges(2);
-        token.addGauge(gauge1);    
-        token.replaceGauge(gauge1, gauge2);   
+        token.addGauge(gauge1);
+        token.replaceGauge(gauge1, gauge2);
         require(token.numGauges() == 1);
-        require(token.gauges()[0] == gauge2); 
-        require(token.deprecatedGauges()[0] == gauge1); 
+        require(token.gauges()[0] == gauge2);
+        require(token.deprecatedGauges()[0] == gauge1);
     }
 
     function testReplaceGaugeNonOwner() public {
@@ -138,7 +137,7 @@ contract ERC20GaugesTest is DSTestPlus {
         token.addGauge(gauge1);
         hevm.startPrank(address(1));
         hevm.expectRevert(bytes("UNAUTHORIZED"));
-        token.replaceGauge(gauge1, gauge2);   
+        token.replaceGauge(gauge1, gauge2);
     }
 
     /*///////////////////////////////////////////////////////////////
@@ -170,14 +169,18 @@ contract ERC20GaugesTest is DSTestPlus {
         require(token.calculateGaugeAllocation(gauge2, 100e18) == 75e18);
     }
 
-    function testIncrement(address[8] memory from, address[8] memory gauges, uint112[8] memory amounts) public {
+    function testIncrement(
+        address[8] memory from,
+        address[8] memory gauges,
+        uint112[8] memory amounts
+    ) public {
         token.setMaxGauges(8);
-         unchecked {
+        unchecked {
             uint112 sum;
             for (uint256 i = 0; i < 8; i++) {
                 hevm.assume(sum + amounts[i] >= sum);
                 sum += amounts[i];
-                
+
                 token.mint(from[i], amounts[i]);
 
                 uint112 userWeightBefore = token.getUserWeight(from[i]);
@@ -194,7 +197,7 @@ contract ERC20GaugesTest is DSTestPlus {
                 require(token.getGaugeWeight(gauges[i]) == gaugeWeightBefore + amounts[i]);
             }
         }
-    }   
+    }
 
     function testIncrementDuringFreeze(uint112 amount, uint128 cycleOffset) public {
         hevm.assume(amount != 0);
@@ -204,7 +207,7 @@ contract ERC20GaugesTest is DSTestPlus {
         token.addGauge(gauge1);
 
         // any timestamp in freeze window is unable to increment
-        hevm.warp(token.getGaugeCycleEnd() - (cycleOffset % token.incrementFreezeWindow()) - 1); 
+        hevm.warp(token.getGaugeCycleEnd() - (cycleOffset % token.incrementFreezeWindow()) - 1);
 
         hevm.expectRevert(abi.encodeWithSignature("IncrementFreezeError()"));
         token.incrementGauge(gauge1, amount);
@@ -212,8 +215,8 @@ contract ERC20GaugesTest is DSTestPlus {
 
     /// @notice test incrementing over user max
     function testIncrementOverMax() public {
-        token.mint(address(this), 2e18);        
-        
+        token.mint(address(this), 2e18);
+
         token.setMaxGauges(1);
         token.addGauge(gauge1);
         token.addGauge(gauge2);
@@ -241,7 +244,11 @@ contract ERC20GaugesTest is DSTestPlus {
     }
 
     /// @notice test incrementing over user max
-    function testIncrementOverMaxApproved(address[8] memory gauges, uint112[8] memory amounts, uint8 max) public {
+    function testIncrementOverMaxApproved(
+        address[8] memory gauges,
+        uint112[8] memory amounts,
+        uint8 max
+    ) public {
         token.setMaxGauges(max % 8);
         token.setContractExceedMaxGauges(address(this), true);
 
@@ -250,7 +257,7 @@ contract ERC20GaugesTest is DSTestPlus {
             for (uint256 i = 0; i < 8; i++) {
                 hevm.assume(sum + amounts[i] >= sum);
                 sum += amounts[i];
-                
+
                 token.mint(address(this), amounts[i]);
 
                 uint112 userGaugeWeightBefore = token.getUserGaugeWeight(address(this), gauges[i]);
@@ -342,15 +349,14 @@ contract ERC20GaugesTest is DSTestPlus {
         token.mint(address(this), amount);
 
         require(token.incrementGauge(gauge1, amount) == amount);
-        hevm.expectRevert(abi.encodeWithSignature("OverWeightError()"));   
+        hevm.expectRevert(abi.encodeWithSignature("OverWeightError()"));
         token.incrementGauge(gauge2, 1);
     }
 
-    
     /// @notice test incrementing multiple gauges with different weights after already incrementing once
     function testIncrementGauges() public {
         token.mint(address(this), 100e18);
-        
+
         token.setMaxGauges(2);
         token.addGauge(gauge1);
         token.addGauge(gauge2);
@@ -389,7 +395,7 @@ contract ERC20GaugesTest is DSTestPlus {
         weights[0] = 2e18;
         weights[1] = 4e18;
         hevm.expectRevert(abi.encodeWithSignature("InvalidGaugeError()"));
-        token.incrementGauges(gaugeList, weights);    
+        token.incrementGauges(gaugeList, weights);
     }
 
     function testIncrementGaugesOver() public {
@@ -406,7 +412,7 @@ contract ERC20GaugesTest is DSTestPlus {
         weights[0] = 50e18;
         weights[1] = 51e18;
         hevm.expectRevert(abi.encodeWithSignature("OverWeightError()"));
-        token.incrementGauges(gaugeList, weights);    
+        token.incrementGauges(gaugeList, weights);
     }
 
     function testIncrementGaugesSizeMismatch() public {
@@ -424,7 +430,7 @@ contract ERC20GaugesTest is DSTestPlus {
         weights[0] = 1e18;
         weights[1] = 2e18;
         hevm.expectRevert(abi.encodeWithSignature("SizeMismatchError()"));
-        token.incrementGauges(gaugeList, weights);    
+        token.incrementGauges(gaugeList, weights);
     }
 
     /// @notice test decrement twice, 2 tokens each after incrementing by 4.
@@ -448,7 +454,7 @@ contract ERC20GaugesTest is DSTestPlus {
         require(token.getUserWeight(address(this)) == 0);
         require(token.getGaugeWeight(gauge1) == 0);
         require(token.totalWeight() == 0);
-    }   
+    }
 
     /// @notice test decrement all removes user gauge.
     function testDecrementAllRemovesGauge() public {
@@ -459,14 +465,14 @@ contract ERC20GaugesTest is DSTestPlus {
         token.addGauge(gauge2);
 
         require(token.incrementGauge(gauge1, 4e18) == 4e18);
-        
+
         require(token.numUserGauges(address(this)) == 1);
         require(token.userGauges(address(this))[0] == gauge1);
 
         require(token.decrementGauge(gauge1, 4e18) == 0);
 
         require(token.numUserGauges(address(this)) == 0);
-    }   
+    }
 
     /// @notice test decrement twice, 2 tokens each after incrementing by 4.
     function testDecrementWithStorage() public {
@@ -553,7 +559,6 @@ contract ERC20GaugesTest is DSTestPlus {
     function testDecrementGaugesOver() public {
         token.mint(address(this), 100e18);
 
-
         token.setMaxGauges(2);
         token.addGauge(gauge1);
         token.addGauge(gauge2);
@@ -565,11 +570,11 @@ contract ERC20GaugesTest is DSTestPlus {
         weights[0] = 5e18;
         weights[1] = 5e18;
 
-        require(token.incrementGauges(gaugeList, weights) == 10e18); 
+        require(token.incrementGauges(gaugeList, weights) == 10e18);
 
         weights[1] = 10e18;
         hevm.expectRevert(abi.encodeWithSignature("Panic(uint256)", 17));
-        token.decrementGauges(gaugeList, weights); 
+        token.decrementGauges(gaugeList, weights);
     }
 
     function testDecrementGaugesSizeMismatch() public {
@@ -586,9 +591,9 @@ contract ERC20GaugesTest is DSTestPlus {
         weights[0] = 1e18;
         weights[1] = 2e18;
 
-        require(token.incrementGauges(gaugeList, weights) == 3e18); 
-        hevm.expectRevert(abi.encodeWithSignature("SizeMismatchError()"));   
-        token.decrementGauges(gaugeList, new uint112[](0));    
+        require(token.incrementGauges(gaugeList, weights) == 3e18);
+        hevm.expectRevert(abi.encodeWithSignature("SizeMismatchError()"));
+        token.decrementGauges(gaugeList, new uint112[](0));
     }
 
     /*///////////////////////////////////////////////////////////////
