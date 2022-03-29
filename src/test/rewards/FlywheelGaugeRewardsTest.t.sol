@@ -9,7 +9,6 @@ import {MockRewardsStream} from "../mocks/MockRewardsStream.sol";
 import "../../rewards/FlywheelGaugeRewards.sol";
 
 contract FlywheelGaugeRewardsTest is DSTestPlus {
-
     FlywheelGaugeRewards rewards;
 
     MockERC20 public rewardToken;
@@ -35,7 +34,13 @@ contract FlywheelGaugeRewardsTest is DSTestPlus {
         gaugeToken.setMaxGauges(10);
         gaugeToken.mint(address(this), 100e18);
 
-        rewards = new FlywheelGaugeRewards(FlywheelCore(address(this)), address(this), Authority(address(0)), gaugeToken, IRewardsStream(address(rewardsStream)));
+        rewards = new FlywheelGaugeRewards(
+            FlywheelCore(address(this)),
+            address(this),
+            Authority(address(0)),
+            gaugeToken,
+            IRewardsStream(address(rewardsStream))
+        );
     }
 
     function testGetRewardsUninitialized() public {
@@ -115,18 +120,18 @@ contract FlywheelGaugeRewardsTest is DSTestPlus {
 
     function testGetRewards() public {
         testQueue();
-        
+
         require(rewards.getAccruedRewards(ERC20(gauge1), uint32(block.timestamp)) == 0);
         (, uint112 stored, ) = rewards.gaugeQueuedRewards(ERC20(gauge1));
         require(stored == 25e18);
 
-        // accrue 20% of 25 
+        // accrue 20% of 25
         hevm.warp(block.timestamp + 200);
         require(rewards.getAccruedRewards(ERC20(gauge1), uint32(block.timestamp) - 200) == 5e18);
         (, stored, ) = rewards.gaugeQueuedRewards(ERC20(gauge1));
         require(stored == 20e18);
 
-        // accrue 60% of 25 
+        // accrue 60% of 25
         hevm.warp(block.timestamp + 600);
         require(rewards.getAccruedRewards(ERC20(gauge1), uint32(block.timestamp) - 600) == 15e18);
         (, stored, ) = rewards.gaugeQueuedRewards(ERC20(gauge1));
@@ -138,11 +143,11 @@ contract FlywheelGaugeRewardsTest is DSTestPlus {
         (, stored, ) = rewards.gaugeQueuedRewards(ERC20(gauge1));
         require(stored == 0);
     }
-    
+
     function testGetPriorRewards() public {
         testQueueTwoCycles();
-        
-        // accrue 25 + 20% of 50 
+
+        // accrue 25 + 20% of 50
         hevm.warp(block.timestamp + 200);
         require(rewards.getAccruedRewards(ERC20(gauge1), uint32(block.timestamp) - 200) == 35e18);
         (uint112 prior, uint112 stored, ) = rewards.gaugeQueuedRewards(ERC20(gauge1));
@@ -223,7 +228,7 @@ contract FlywheelGaugeRewardsTest is DSTestPlus {
     function testPagination() public {
         gaugeToken.addGauge(gauge1);
         gaugeToken.incrementGauge(gauge1, 1e18);
-        
+
         gaugeToken.addGauge(gauge2);
         gaugeToken.incrementGauge(gauge2, 2e18);
 
@@ -233,11 +238,10 @@ contract FlywheelGaugeRewardsTest is DSTestPlus {
         gaugeToken.addGauge(gauge4);
         gaugeToken.incrementGauge(gauge4, 4e18);
 
-
         hevm.warp(block.timestamp + 1000);
 
         require(rewards.gaugeCycle() == 1000);
-        
+
         rewards.queueRewardsForCyclePaginated(2);
 
         // pagination not complete, cycle not complete
@@ -300,7 +304,7 @@ contract FlywheelGaugeRewardsTest is DSTestPlus {
         hevm.warp(block.timestamp + 1000);
 
         require(rewards.gaugeCycle() == 2000);
-        
+
         rewards.queueRewardsForCyclePaginated(2);
 
         // pagination not complete, cycle not complete
@@ -331,7 +335,7 @@ contract FlywheelGaugeRewardsTest is DSTestPlus {
 
         // pagination complete, cycle complete
         require(rewards.gaugeCycle() == 4000);
- 
+
         hevm.warp(block.timestamp + 500);
         require(rewards.getAccruedRewards(ERC20(gauge1), uint32(block.timestamp) - 500) == 20e18); // 10% of 2 rounds
         require(rewards.getAccruedRewards(ERC20(gauge2), uint32(block.timestamp) - 500) == 60e18); // 30% of 2 rounds

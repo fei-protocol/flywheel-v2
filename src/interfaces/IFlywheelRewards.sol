@@ -33,8 +33,8 @@ interface IFlywheelRewards {
     function getAccruedRewards(ERC20 strategy, uint32 lastUpdatedTimestamp) external returns (uint256 rewards);
 
     /// @notice return the flywheel core address
-    function flywheel() external view returns(FlywheelCore);
+    function flywheel() external view returns (FlywheelCore);
 
     /// @notice return the reward token associated with flywheel core.
-    function rewardToken() external view returns(ERC20); 
+    function rewardToken() external view returns (ERC20);
 }

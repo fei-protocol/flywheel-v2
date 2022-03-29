@@ -52,11 +52,11 @@ abstract contract ERC20Gauges is ERC20, Auth {
     //////////////////////////////////////////////////////////////*/
 
     event IncrementGaugeWeight(address indexed user, address indexed gauge, uint256 weight);
-    
+
     event DecrementGaugeWeight(address indexed user, address indexed gauge, uint256 weight);
-    
+
     event AddGauge(address indexed gauge);
-    
+
     event RemoveGauge(address indexed gauge);
 
     event MaxGaugesUpdate(uint256 oldMaxGauges, uint256 newMaxGauges);
@@ -106,7 +106,6 @@ abstract contract ERC20Gauges is ERC20, Auth {
     // Store deprecated gauges in case a user needs to free dead weight
     EnumerableSet.AddressSet internal _deprecatedGauges;
 
-
     constructor(uint32 _gaugeCycleLength, uint32 _incrementFreezeWindow) {
         if (_incrementFreezeWindow >= _gaugeCycleLength) revert IncrementFreezeError();
         gaugeCycleLength = _gaugeCycleLength;
@@ -118,45 +117,45 @@ abstract contract ERC20Gauges is ERC20, Auth {
     //////////////////////////////////////////////////////////////*/
 
     /// @notice return the end of the current cycle. This is the next unix timestamp which evenly divides `gaugeCycleLength`
-    function getGaugeCycleEnd() public view returns(uint32) {
+    function getGaugeCycleEnd() public view returns (uint32) {
         return _getGaugeCycleEnd();
     }
 
     /// @notice see `getGaugeCycleEnd()`
-    function _getGaugeCycleEnd() internal view returns(uint32) {
+    function _getGaugeCycleEnd() internal view returns (uint32) {
         uint32 nowPlusOneCycle = block.timestamp.safeCastTo32() + gaugeCycleLength;
         unchecked {
-            return nowPlusOneCycle / gaugeCycleLength * gaugeCycleLength; // cannot divide by zero and always <= nowPlusOneCycle so no overflow
+            return (nowPlusOneCycle / gaugeCycleLength) * gaugeCycleLength; // cannot divide by zero and always <= nowPlusOneCycle so no overflow
         }
     }
 
     /// @notice returns the current weight of a given gauge
-    function getGaugeWeight(address gauge) public view returns(uint112) {
+    function getGaugeWeight(address gauge) public view returns (uint112) {
         return _getGaugeWeight[gauge].currentWeight;
     }
 
     /// @notice returns the stored weight of a given gauge. This is the snapshotted weight as-of the end of the last cycle.
-    function getStoredGaugeWeight(address gauge) public view returns(uint112) {
+    function getStoredGaugeWeight(address gauge) public view returns (uint112) {
         return _getStoredWeight(_getGaugeWeight[gauge], _getGaugeCycleEnd());
     }
 
     /// @notice see `getStoredGaugeWeight()`
-    function _getStoredWeight(Weight storage gaugeWeight, uint32 currentCycle) internal view returns(uint112) {
+    function _getStoredWeight(Weight storage gaugeWeight, uint32 currentCycle) internal view returns (uint112) {
         return gaugeWeight.currentCycle < currentCycle ? gaugeWeight.currentWeight : gaugeWeight.storedWeight;
     }
 
     /// @notice returns the current total allocated weight
-    function totalWeight() external view returns(uint112) {
+    function totalWeight() external view returns (uint112) {
         return _totalWeight.currentWeight;
     }
 
     /// @notice returns the stored total allocated weight
-    function storedTotalWeight() external view returns(uint112) {
+    function storedTotalWeight() external view returns (uint112) {
         return _getStoredWeight(_totalWeight, _getGaugeCycleEnd());
     }
 
     /// @notice returns the set of live gauges
-    function gauges() external view returns(address[] memory) {
+    function gauges() external view returns (address[] memory) {
         return _gauges.values();
     }
 
@@ -165,9 +164,9 @@ abstract contract ERC20Gauges is ERC20, Auth {
       @param offset the index of the first gauge element to read
       @param num the number of gauges to return
     */
-    function gauges(uint256 offset, uint256 num) external view returns(address[] memory values) {
+    function gauges(uint256 offset, uint256 num) external view returns (address[] memory values) {
         values = new address[](num);
-        for (uint256 i = 0; i < num;) {
+        for (uint256 i = 0; i < num; ) {
             unchecked {
                 values[i] = _gauges.at(offset + i); // will revert if out of bounds
                 i++;
@@ -181,22 +180,22 @@ abstract contract ERC20Gauges is ERC20, Auth {
     }
 
     /// @notice returns the number of live gauges
-    function numGauges() external view returns(uint256) {
+    function numGauges() external view returns (uint256) {
         return _gauges.length();
     }
 
     /// @notice returns the set of previously live but now deprecated gauges
-    function deprecatedGauges() external view returns(address[] memory) {
+    function deprecatedGauges() external view returns (address[] memory) {
         return _deprecatedGauges.values();
     }
 
     /// @notice returns the number of live gauges
-    function numDeprecatedGauges() external view returns(uint256) {
+    function numDeprecatedGauges() external view returns (uint256) {
         return _deprecatedGauges.length();
     }
 
     /// @notice returns the set of gauges the user has allocated to, may be live or deprecated.
-    function userGauges(address user) external view returns(address[] memory) {
+    function userGauges(address user) external view returns (address[] memory) {
         return _userGauges[user].values();
     }
 
@@ -211,9 +210,13 @@ abstract contract ERC20Gauges is ERC20, Auth {
       @param offset the index of the first gauge element to read.
       @param num the number of gauges to return.
     */
-    function userGauges(address user, uint256 offset, uint256 num) external view returns(address[] memory values) {
+    function userGauges(
+        address user,
+        uint256 offset,
+        uint256 num
+    ) external view returns (address[] memory values) {
         values = new address[](num);
-        for (uint256 i = 0; i < num;) {
+        for (uint256 i = 0; i < num; ) {
             unchecked {
                 values[i] = _userGauges[user].at(offset + i); // will revert if out of bounds
                 i++;
@@ -222,12 +225,12 @@ abstract contract ERC20Gauges is ERC20, Auth {
     }
 
     /// @notice returns the number of user gauges
-    function numUserGauges(address user) external view returns(uint256) {
+    function numUserGauges(address user) external view returns (uint256) {
         return _userGauges[user].length();
     }
 
     /// @notice helper function exposing the amount of weight available to allocate for a user
-    function userUnusedWeight(address user) external view returns(uint256) {
+    function userUnusedWeight(address user) external view returns (uint256) {
         return balanceOf[user] - getUserWeight[user];
     }
 
@@ -237,13 +240,13 @@ abstract contract ERC20Gauges is ERC20, Auth {
      @param quantity a representation of a resource to be shared among all gauges
      @return the proportion of `quantity` allocated to `gauge`. Returns 0 if gauge is not live, even if it has weight.
     */
-    function calculateGaugeAllocation(address gauge, uint256 quantity) external view returns(uint256) {
+    function calculateGaugeAllocation(address gauge, uint256 quantity) external view returns (uint256) {
         if (!_gauges.contains(gauge)) return 0;
         uint32 currentCycle = _getGaugeCycleEnd();
-                
-        uint112 total =  _getStoredWeight(_totalWeight, currentCycle);
+
+        uint112 total = _getStoredWeight(_totalWeight, currentCycle);
         uint112 weight = _getStoredWeight(_getGaugeWeight[gauge], currentCycle);
-        return quantity * weight / total;
+        return (quantity * weight) / total;
     }
 
     /*///////////////////////////////////////////////////////////////
@@ -256,37 +259,47 @@ abstract contract ERC20Gauges is ERC20, Auth {
      @param weight the amount of weight to increment on gauge
      @return newUserWeight the new user weight
     */
-    function incrementGauge(address gauge, uint112 weight) external returns(uint112 newUserWeight) {
+    function incrementGauge(address gauge, uint112 weight) external returns (uint112 newUserWeight) {
         uint32 currentCycle = _getGaugeCycleEnd();
         _incrementGaugeWeight(msg.sender, gauge, weight, currentCycle);
         return _incrementUserAndGlobalWeights(msg.sender, weight, currentCycle);
-    } 
+    }
 
-    function _incrementGaugeWeight(address user, address gauge, uint112 weight, uint32 cycle) internal {
+    function _incrementGaugeWeight(
+        address user,
+        address gauge,
+        uint112 weight,
+        uint32 cycle
+    ) internal {
         if (!_gauges.contains(gauge)) revert InvalidGaugeError();
         unchecked {
             if (cycle - block.timestamp <= incrementFreezeWindow) revert IncrementFreezeError();
         }
-        
+
         bool added = _userGauges[user].add(gauge); // idempotent add
-        if (added && _userGauges[user].length() > maxGauges && !canContractExceedMaxGauges[user]) revert MaxGaugeError();
+        if (added && _userGauges[user].length() > maxGauges && !canContractExceedMaxGauges[user])
+            revert MaxGaugeError();
 
         getUserGaugeWeight[user][gauge] += weight;
 
-        _writeGaugeWeight(_getGaugeWeight[gauge], _add, weight, cycle); 
+        _writeGaugeWeight(_getGaugeWeight[gauge], _add, weight, cycle);
 
         emit IncrementGaugeWeight(user, gauge, weight);
     }
 
-    function _incrementUserAndGlobalWeights(address user, uint112 weight, uint32 cycle) internal returns(uint112 newUserWeight) {
+    function _incrementUserAndGlobalWeights(
+        address user,
+        uint112 weight,
+        uint32 cycle
+    ) internal returns (uint112 newUserWeight) {
         newUserWeight = getUserWeight[user] + weight;
         // Ensure under weight
         if (newUserWeight > balanceOf[user]) revert OverWeightError();
 
         // Update gauge state
-        getUserWeight[user] = newUserWeight; 
+        getUserWeight[user] = newUserWeight;
 
-        _writeGaugeWeight(_totalWeight, _add, weight, cycle); 
+        _writeGaugeWeight(_totalWeight, _add, weight, cycle);
     }
 
     /** 
@@ -295,8 +308,10 @@ abstract contract ERC20Gauges is ERC20, Auth {
      @param weights the weights to increment by
      @return newUserWeight the new user weight
     */
-    function incrementGauges(address[] calldata gaugeList, uint112[] calldata weights) external returns(uint256 newUserWeight) {
-        
+    function incrementGauges(address[] calldata gaugeList, uint112[] calldata weights)
+        external
+        returns (uint256 newUserWeight)
+    {
         uint256 size = gaugeList.length;
         if (weights.length != size) revert SizeMismatchError();
 
@@ -306,7 +321,7 @@ abstract contract ERC20Gauges is ERC20, Auth {
         uint32 currentCycle = _getGaugeCycleEnd();
 
         // Update gauge specific state
-        for (uint256 i = 0; i < size;) {
+        for (uint256 i = 0; i < size; ) {
             address gauge = gaugeList[i];
             uint112 weight = weights[i];
             weightsSum += weight;
@@ -327,31 +342,40 @@ abstract contract ERC20Gauges is ERC20, Auth {
     */
     function decrementGauge(address gauge, uint112 weight) external returns (uint112 newUserWeight) {
         uint32 currentCycle = _getGaugeCycleEnd();
-        
+
         // All operations will revert on underflow, protecting against bad inputs
         _decrementGaugeWeight(msg.sender, gauge, weight, currentCycle);
         return _decrementUserAndGlobalWeights(msg.sender, weight, currentCycle);
     }
 
-    function _decrementGaugeWeight(address user, address gauge, uint112 weight, uint32 cycle) internal {
+    function _decrementGaugeWeight(
+        address user,
+        address gauge,
+        uint112 weight,
+        uint32 cycle
+    ) internal {
         uint112 oldWeight = getUserGaugeWeight[user][gauge];
-        
+
         getUserGaugeWeight[user][gauge] = oldWeight - weight;
         if (oldWeight == weight) {
             // If removing all weight, remove gauge from user list.
             assert(_userGauges[user].remove(gauge));
         }
 
-        _writeGaugeWeight(_getGaugeWeight[gauge], _subtract, weight, cycle); 
+        _writeGaugeWeight(_getGaugeWeight[gauge], _subtract, weight, cycle);
 
         emit DecrementGaugeWeight(user, gauge, weight);
     }
 
-    function _decrementUserAndGlobalWeights(address user, uint112 weight, uint32 cycle) internal returns(uint112 newUserWeight) {
+    function _decrementUserAndGlobalWeights(
+        address user,
+        uint112 weight,
+        uint32 cycle
+    ) internal returns (uint112 newUserWeight) {
         newUserWeight = getUserWeight[user] - weight;
 
         getUserWeight[user] = newUserWeight;
-        _writeGaugeWeight(_totalWeight, _subtract, weight, cycle); 
+        _writeGaugeWeight(_totalWeight, _subtract, weight, cycle);
     }
 
     /** 
@@ -360,7 +384,10 @@ abstract contract ERC20Gauges is ERC20, Auth {
      @param weights the list of weights to decrement on the gauges
      @return newUserWeight the new user weight
     */
-    function decrementGauges(address[] calldata gaugeList, uint112[] calldata weights) external returns (uint112 newUserWeight) {
+    function decrementGauges(address[] calldata gaugeList, uint112[] calldata weights)
+        external
+        returns (uint112 newUserWeight)
+    {
         uint256 size = gaugeList.length;
         if (weights.length != size) revert SizeMismatchError();
 
@@ -371,7 +398,7 @@ abstract contract ERC20Gauges is ERC20, Auth {
 
         // Update gauge specific state
         // All operations will revert on underflow, protecting against bad inputs
-        for (uint256 i = 0; i < size;) {
+        for (uint256 i = 0; i < size; ) {
             address gauge = gaugeList[i];
             uint112 weight = weights[i];
             weightsSum += weight;
@@ -445,7 +472,7 @@ abstract contract ERC20Gauges is ERC20, Auth {
 
     function _removeGauge(address gauge) internal {
         // remove and fail loud if not present
-        if (!_gauges.remove(gauge)) revert InvalidGaugeError(); 
+        if (!_gauges.remove(gauge)) revert InvalidGaugeError();
         _deprecatedGauges.add(gauge); // add gauge to deprecated. Must not be present if previously in live set.
 
         uint32 currentCycle = _getGaugeCycleEnd();
@@ -475,8 +502,8 @@ abstract contract ERC20Gauges is ERC20, Auth {
 
     /// @notice set the canContractExceedMaxGauges flag for an account.
     function setContractExceedMaxGauges(address account, bool canExceedMax) external requiresAuth {
-        if(canExceedMax && account.code.length == 0) revert Errors.NonContractError(); // can only approve contracts
-        
+        if (canExceedMax && account.code.length == 0) revert Errors.NonContractError(); // can only approve contracts
+
         canContractExceedMaxGauges[account] = canExceedMax;
 
         emit CanContractExceedMaxGaugesUpdate(account, canExceedMax);
@@ -490,18 +517,21 @@ abstract contract ERC20Gauges is ERC20, Auth {
     /// _decrementWeightUntilFree is called as a greedy algorithm to free up weight.
     /// It may be more gas efficient to free weight before burning or transferring tokens.
 
-
     function _burn(address from, uint256 amount) internal virtual override {
         _decrementWeightUntilFree(from, amount);
         super._burn(from, amount);
     }
 
-    function transfer(address to, uint256 amount) public virtual override returns(bool) {
+    function transfer(address to, uint256 amount) public virtual override returns (bool) {
         _decrementWeightUntilFree(msg.sender, amount);
         return super.transfer(to, amount);
     }
 
-    function transferFrom(address from, address to, uint256 amount) public virtual override returns(bool) {
+    function transferFrom(
+        address from,
+        address to,
+        uint256 amount
+    ) public virtual override returns (bool) {
         _decrementWeightUntilFree(from, amount);
         return super.transferFrom(from, to, amount);
     }
@@ -525,7 +555,7 @@ abstract contract ERC20Gauges is ERC20, Auth {
 
         // Free gauges until through entire list or under weight
         uint256 size = gaugeList.length;
-        for (uint256 i = 0; i < size && (userFreeWeight + totalFreed) < weight;) {
+        for (uint256 i = 0; i < size && (userFreeWeight + totalFreed) < weight; ) {
             address gauge = gaugeList[i];
             uint112 userGaugeWeight = getUserGaugeWeight[user][gauge];
             if (userGaugeWeight != 0) {

@@ -10,9 +10,8 @@ import {ERC20Gauges} from "../token/ERC20Gauges.sol";
 
 /// @notice a contract which streams reward tokens to the FlywheelRewards module
 interface IRewardsStream {
-
     /// @notice read and transfer reward token chunk to FlywheelRewards module
-    function getRewards() external returns(uint256);
+    function getRewards() external returns (uint256);
 }
 
 /** 
@@ -30,7 +29,7 @@ interface IRewardsStream {
  2. Rewards for the current cycle are distributed proportionally to the remaining time in the cycle. 
     If `e` is the cycle end, `t` is the min of e and current timestamp, and `p` is the prior updated time:
     For `A` accrued rewards over the cycle, distribute `min(A * (t-p)/(e-p), A)`.
-*/ 
+*/
 contract FlywheelGaugeRewards is Auth, BaseFlywheelRewards {
     using SafeTransferLib for ERC20;
     using SafeCastLib for uint256;
@@ -72,17 +71,16 @@ contract FlywheelGaugeRewards is Auth, BaseFlywheelRewards {
     IRewardsStream public rewardsStream;
 
     constructor(
-        FlywheelCore _flywheel, 
-        address _owner, 
+        FlywheelCore _flywheel,
+        address _owner,
         Authority _authority,
         ERC20Gauges _gaugeToken,
         IRewardsStream _rewardsStream
     ) BaseFlywheelRewards(_flywheel) Auth(_owner, _authority) {
-
         gaugeCycleLength = _gaugeToken.gaugeCycleLength();
 
         // seed initial gaugeCycle
-        gaugeCycle = block.timestamp.safeCastTo32() / gaugeCycleLength * gaugeCycleLength;
+        gaugeCycle = (block.timestamp.safeCastTo32() / gaugeCycleLength) * gaugeCycleLength;
 
         gaugeToken = _gaugeToken;
 
@@ -97,12 +95,12 @@ contract FlywheelGaugeRewards is Auth, BaseFlywheelRewards {
     */
     function queueRewardsForCycle() external requiresAuth returns (uint256 totalQueuedForCycle) {
         // next cycle is always the next even divisor of the cycle length above current block timestamp.
-        uint32 currentCycle = block.timestamp.safeCastTo32() / gaugeCycleLength * gaugeCycleLength;
-        uint32 lastCycle = gaugeCycle;  // SLOAD
+        uint32 currentCycle = (block.timestamp.safeCastTo32() / gaugeCycleLength) * gaugeCycleLength;
+        uint32 lastCycle = gaugeCycle; // SLOAD
 
         // ensure new cycle has begun
         if (currentCycle <= lastCycle) revert CycleError();
-        
+
         gaugeCycle = currentCycle; // SSTORE
 
         // queue the rewards stream and sanity check the tokens were received
@@ -127,7 +125,7 @@ contract FlywheelGaugeRewards is Auth, BaseFlywheelRewards {
     */
     function queueRewardsForCyclePaginated(uint256 numRewards) external requiresAuth {
         // next cycle is always the next even divisor of the cycle length above current block timestamp.
-        uint32 currentCycle = block.timestamp.safeCastTo32() / gaugeCycleLength * gaugeCycleLength;
+        uint32 currentCycle = (block.timestamp.safeCastTo32() / gaugeCycleLength) * gaugeCycleLength;
         uint32 lastCycle = gaugeCycle;
 
         // ensure new cycle has begun
@@ -137,7 +135,7 @@ contract FlywheelGaugeRewards is Auth, BaseFlywheelRewards {
             nextCycle = currentCycle;
             paginationOffset = 0;
         }
-        
+
         uint32 offset = paginationOffset;
 
         // important to only calculate the reward amount once to prevent each page from having a different reward amount
@@ -152,7 +150,7 @@ contract FlywheelGaugeRewards is Auth, BaseFlywheelRewards {
 
         uint112 queued = nextCycleQueuedRewards;
 
-        uint remaining = gaugeToken.numGauges() - offset;
+        uint256 remaining = gaugeToken.numGauges() - offset;
 
         // Important to do non-strict inequality to include the case where the numRewards is just enough to complete the cycle
         if (remaining <= numRewards) {
@@ -170,14 +168,19 @@ contract FlywheelGaugeRewards is Auth, BaseFlywheelRewards {
         _queueRewards(gauges, currentCycle, lastCycle, queued);
     }
 
-    function _queueRewards(address[] memory gauges, uint32 currentCycle, uint32 lastCycle, uint256 totalQueuedForCycle) internal {
+    function _queueRewards(
+        address[] memory gauges,
+        uint32 currentCycle,
+        uint32 lastCycle,
+        uint256 totalQueuedForCycle
+    ) internal {
         uint256 size = gauges.length;
 
         if (size == 0) revert EmptyGaugesError();
 
         for (uint256 i = 0; i < size; i++) {
             ERC20 gauge = ERC20(gauges[i]);
-            
+
             QueuedRewards memory queuedRewards = gaugeQueuedRewards[gauge];
 
             // Cycle queue already started
@@ -203,7 +206,12 @@ contract FlywheelGaugeRewards is Auth, BaseFlywheelRewards {
      @param lastUpdatedTimestamp the last updated time for gauge
      @return accruedRewards the amount of reward tokens accrued.
     */
-    function getAccruedRewards(ERC20 gauge, uint32 lastUpdatedTimestamp) external override onlyFlywheel returns (uint256 accruedRewards) {
+    function getAccruedRewards(ERC20 gauge, uint32 lastUpdatedTimestamp)
+        external
+        override
+        onlyFlywheel
+        returns (uint256 accruedRewards)
+    {
         QueuedRewards memory queuedRewards = gaugeQueuedRewards[gauge];
 
         uint32 cycle = gaugeCycle;
@@ -217,7 +225,6 @@ contract FlywheelGaugeRewards is Auth, BaseFlywheelRewards {
         // if stored cycle != 0 it must be >= the last queued cycle
         assert(queuedRewards.storedCycle >= cycle);
 
-
         uint32 cycleEnd = cycle + gaugeCycleLength;
 
         // always accrue prior rewards
@@ -226,7 +233,7 @@ contract FlywheelGaugeRewards is Auth, BaseFlywheelRewards {
 
         if (incompleteCycle) {
             // If current cycle queue incomplete, do nothing to current cycle rewards or accrued
-        } else if (block.timestamp >= cycleEnd) { 
+        } else if (block.timestamp >= cycleEnd) {
             // If cycle ended, accrue all rewards
             accruedRewards += cycleRewardsNext;
             cycleRewardsNext = 0;
@@ -236,7 +243,7 @@ contract FlywheelGaugeRewards is Auth, BaseFlywheelRewards {
             // otherwise, return proportion of remaining rewards in cycle
             uint32 elapsed = block.timestamp.safeCastTo32() - beginning;
             uint32 remaining = cycleEnd - beginning;
-                
+
             // Casted up to avoid intermediate overflow
             // cannot end in an overflow of uint112 because elapsed <= remaining and cycleRewards <= uint112.max
             uint256 currentAccrued = (uint256(queuedRewards.cycleRewards) * elapsed) / remaining;
