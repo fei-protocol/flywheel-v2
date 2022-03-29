@@ -205,20 +205,24 @@ abstract contract ERC20MultiVotes is ERC20, Auth {
      * @dev undefined for `delegateCount(msg.sender) > 1`
      */
     function delegate(address newDelegatee) external virtual {
-        uint256 count = delegateCount(msg.sender);
+        _delegate(msg.sender, newDelegatee);
+    }
+
+    function _delegate(address delegator, address newDelegatee) internal virtual {
+        uint256 count = delegateCount(delegator);
 
         // undefined behavior for delegateCount > 1
         if (count > 1) revert DelegationError();
 
         // if already delegated, undelegate first
         if (count == 1) {
-            address oldDelegatee = _delegates[msg.sender].at(0);
-            _undelegate(msg.sender, oldDelegatee, _delegatesVotesCount[msg.sender][oldDelegatee]);
+            address oldDelegatee = _delegates[delegator].at(0);
+            _undelegate(delegator, oldDelegatee, _delegatesVotesCount[delegator][oldDelegatee]);
         }
 
         // redelegate only if newDelegatee is not empty
         if (newDelegatee != address(0)) {
-            _delegate(msg.sender, newDelegatee, freeVotes(msg.sender));
+            _delegate(delegator, newDelegatee, freeVotes(delegator));
         }
     }
 
@@ -348,5 +352,37 @@ abstract contract ERC20MultiVotes is ERC20, Auth {
         }
 
         userDelegatedVotes[user] -= totalFreed;
+    }
+
+    /*///////////////////////////////////////////////////////////////
+                             EIP-712 LOGIC
+    //////////////////////////////////////////////////////////////*/
+
+    bytes32 public constant DELEGATION_TYPEHASH =
+        keccak256("Delegation(address delegatee,uint256 nonce,uint256 expiry)");
+
+    function delegateBySig(
+        address delegatee,
+        uint256 nonce,
+        uint256 expiry,
+        uint8 v,
+        bytes32 r,
+        bytes32 s
+    ) public {
+        require(block.timestamp <= expiry, "ERC20MultiVotes: signature expired");
+        address signer = ecrecover(
+            keccak256(
+                abi.encodePacked(
+                    "\x19\x01",
+                    DOMAIN_SEPARATOR(),
+                    keccak256(abi.encode(DELEGATION_TYPEHASH, delegatee, nonce, expiry))
+                )
+            ),
+            v,
+            r,
+            s
+        );
+        require(nonce == nonces[signer]++, "ERC20MultiVotes: invalid nonce");
+        _delegate(signer, delegatee);
     }
 }
