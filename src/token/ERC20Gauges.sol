@@ -118,12 +118,12 @@ abstract contract ERC20Gauges is ERC20, Auth {
     //////////////////////////////////////////////////////////////*/
 
     /// @notice return the end of the current cycle. This is the next unix timestamp which evenly divides `gaugeCycleLength`
-    function getCurrentCycle() public view returns(uint32) {
-        return _getCurrentCycle();
+    function getGaugeCycleEnd() public view returns(uint32) {
+        return _getGaugeCycleEnd();
     }
 
-    /// @notice see `getCurrentCycle()`
-    function _getCurrentCycle() internal view returns(uint32) {
+    /// @notice see `getGaugeCycleEnd()`
+    function _getGaugeCycleEnd() internal view returns(uint32) {
         uint32 nowPlusOneCycle = block.timestamp.safeCastTo32() + gaugeCycleLength;
         unchecked {
             return nowPlusOneCycle / gaugeCycleLength * gaugeCycleLength; // cannot divide by zero and always <= nowPlusOneCycle so no overflow
@@ -137,7 +137,7 @@ abstract contract ERC20Gauges is ERC20, Auth {
 
     /// @notice returns the stored weight of a given gauge. This is the snapshotted weight as-of the end of the last cycle.
     function getStoredGaugeWeight(address gauge) public view returns(uint112) {
-        return _getStoredWeight(_getGaugeWeight[gauge], _getCurrentCycle());
+        return _getStoredWeight(_getGaugeWeight[gauge], _getGaugeCycleEnd());
     }
 
     /// @notice see `getStoredGaugeWeight()`
@@ -152,7 +152,7 @@ abstract contract ERC20Gauges is ERC20, Auth {
 
     /// @notice returns the stored total allocated weight
     function storedTotalWeight() external view returns(uint112) {
-        return _getStoredWeight(_totalWeight, _getCurrentCycle());
+        return _getStoredWeight(_totalWeight, _getGaugeCycleEnd());
     }
 
     /// @notice returns the set of live gauges
@@ -175,6 +175,11 @@ abstract contract ERC20Gauges is ERC20, Auth {
         }
     }
 
+    /// @notice returns true if `gauge` is in gauges
+    function isGauge(address gauge) external view returns (bool) {
+        return _gauges.contains(gauge);
+    }
+
     /// @notice returns the number of live gauges
     function numGauges() external view returns(uint256) {
         return _gauges.length();
@@ -193,6 +198,11 @@ abstract contract ERC20Gauges is ERC20, Auth {
     /// @notice returns the set of gauges the user has allocated to, may be live or deprecated.
     function userGauges(address user) external view returns(address[] memory) {
         return _userGauges[user].values();
+    }
+
+    /// @notice returns true if `gauge` is in user gauges
+    function isUserGauge(address user, address gauge) external view returns (bool) {
+        return _userGauges[user].contains(gauge);
     }
 
     /** 
@@ -229,7 +239,7 @@ abstract contract ERC20Gauges is ERC20, Auth {
     */
     function calculateGaugeAllocation(address gauge, uint256 quantity) external view returns(uint256) {
         if (!_gauges.contains(gauge)) return 0;
-        uint32 currentCycle = _getCurrentCycle();
+        uint32 currentCycle = _getGaugeCycleEnd();
                 
         uint112 total =  _getStoredWeight(_totalWeight, currentCycle);
         uint112 weight = _getStoredWeight(_getGaugeWeight[gauge], currentCycle);
@@ -247,7 +257,7 @@ abstract contract ERC20Gauges is ERC20, Auth {
      @return newUserWeight the new user weight
     */
     function incrementGauge(address gauge, uint112 weight) external returns(uint112 newUserWeight) {
-        uint32 currentCycle = _getCurrentCycle();
+        uint32 currentCycle = _getGaugeCycleEnd();
         _incrementGaugeWeight(msg.sender, gauge, weight, currentCycle);
         return _incrementUserAndGlobalWeights(msg.sender, weight, currentCycle);
     } 
@@ -293,7 +303,7 @@ abstract contract ERC20Gauges is ERC20, Auth {
         // store total in summary for batch update on user/global state
         uint112 weightsSum;
 
-        uint32 currentCycle = _getCurrentCycle();
+        uint32 currentCycle = _getGaugeCycleEnd();
 
         // Update gauge specific state
         for (uint256 i = 0; i < size;) {
@@ -316,7 +326,7 @@ abstract contract ERC20Gauges is ERC20, Auth {
      @return newUserWeight the new user weight
     */
     function decrementGauge(address gauge, uint112 weight) external returns (uint112 newUserWeight) {
-        uint32 currentCycle = _getCurrentCycle();
+        uint32 currentCycle = _getGaugeCycleEnd();
         
         // All operations will revert on underflow, protecting against bad inputs
         _decrementGaugeWeight(msg.sender, gauge, weight, currentCycle);
@@ -357,7 +367,7 @@ abstract contract ERC20Gauges is ERC20, Auth {
         // store total in summary for batch update on user/global state
         uint112 weightsSum;
 
-        uint32 currentCycle = _getCurrentCycle();
+        uint32 currentCycle = _getGaugeCycleEnd();
 
         // Update gauge specific state
         // All operations will revert on underflow, protecting against bad inputs
@@ -417,7 +427,7 @@ abstract contract ERC20Gauges is ERC20, Auth {
         if (gauge == address(0) || !_gauges.add(gauge)) revert InvalidGaugeError();
         _deprecatedGauges.remove(gauge); // silently remove gauge from deprecated if present
 
-        uint32 currentCycle = _getCurrentCycle();
+        uint32 currentCycle = _getGaugeCycleEnd();
 
         // Check if some previous weight exists and re-add to total. Gauge and user weights are preserved.
         uint112 weight = _getGaugeWeight[gauge].currentWeight;
@@ -438,7 +448,7 @@ abstract contract ERC20Gauges is ERC20, Auth {
         if (!_gauges.remove(gauge)) revert InvalidGaugeError(); 
         _deprecatedGauges.add(gauge); // add gauge to deprecated. Must not be present if previously in live set.
 
-        uint32 currentCycle = _getCurrentCycle();
+        uint32 currentCycle = _getGaugeCycleEnd();
 
         // Remove weight from total but keep the gauge and user weights in storage in case gauge is re-added.
         uint112 weight = _getGaugeWeight[gauge].currentWeight;
@@ -504,7 +514,7 @@ abstract contract ERC20Gauges is ERC20, Auth {
         // early return if already free
         if (userFreeWeight >= weight) return;
 
-        uint32 currentCycle = _getCurrentCycle();
+        uint32 currentCycle = _getGaugeCycleEnd();
 
         // cache totals for batch updates
         uint112 userFreed;
