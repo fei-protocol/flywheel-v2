@@ -22,7 +22,7 @@ contract ERC20MultiVotesTest is DSTestPlus {
         require(token.maxDelegates() == max);
     }
 
-    function testSetMaxDelegatesNonOwner() public {
+    function testSetMaxDelegatesNonOwnerFails() public {
         hevm.prank(address(1));
         hevm.expectRevert(bytes("UNAUTHORIZED"));
         token.setMaxDelegates(7);
@@ -33,13 +33,13 @@ contract ERC20MultiVotesTest is DSTestPlus {
         require(token.canContractExceedMaxDelegates(address(this)));
     }
 
-    function testCanContractExceedMaxNonOwner() public {
+    function testCanContractExceedMaxNonOwnerFails() public {
         hevm.prank(address(1));
         hevm.expectRevert(bytes("UNAUTHORIZED"));
         token.setContractExceedMaxDelegates(address(this), true);
     }
 
-    function testCanContractExceedMaxNonContract() public {
+    function testCanContractExceedMaxNonContractFails() public {
         hevm.expectRevert(abi.encodeWithSignature("NonContractError()"));
         token.setContractExceedMaxDelegates(address(1), true);
     }
@@ -77,7 +77,7 @@ contract ERC20MultiVotesTest is DSTestPlus {
         }
     }
 
-    function testDelegateToAddressZero() public {
+    function testDelegateToAddressZeroFails() public {
         token.mint(address(this), 100e18);
         token.setMaxDelegates(2);
 
@@ -85,7 +85,7 @@ contract ERC20MultiVotesTest is DSTestPlus {
         token.delegate(address(0), 50e18);
     }
 
-    function testDelegateOverVotes() public {
+    function testDelegateOverVotesFails() public {
         token.mint(address(this), 100e18);
         token.setMaxDelegates(2);
 
@@ -94,7 +94,7 @@ contract ERC20MultiVotesTest is DSTestPlus {
         token.delegate(delegate2, 51e18);
     }
 
-    function testDelegateOverMaxDelegates() public {
+    function testDelegateOverMaxDelegatesFails() public {
         token.mint(address(this), 100e18);
         token.setMaxDelegates(2);
 
@@ -138,7 +138,7 @@ contract ERC20MultiVotesTest is DSTestPlus {
         require(token.freeVotes(address(this)) == 100e18);
     }
 
-    function testDecrementOverWeight() public {
+    function testDecrementOverWeightFails() public {
         token.mint(address(this), 100e18);
         token.setMaxDelegates(2);
 
