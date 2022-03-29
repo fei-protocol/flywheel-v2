@@ -147,7 +147,7 @@ contract ERC20MultiVotesTest is DSTestPlus {
         token.undelegate(delegate1, 51e18);
     }
 
-    function testRedelegate(
+    function testBackwardCompatibleDelegate(
         address oldDelegatee,
         uint112 beforeDelegateAmount,
         address newDelegatee,
@@ -169,6 +169,46 @@ contract ERC20MultiVotesTest is DSTestPlus {
         require(token.userDelegatedVotes(address(this)) == mintAmount);
         require(token.getVotes(newDelegatee) == mintAmount);
         require(token.freeVotes(address(this)) == 0);
+    }
+
+    function testBackwardCompatibleDelegateBySig(
+        uint128 delegatorPk,
+        address oldDelegatee,
+        uint112 beforeDelegateAmount,
+        address newDelegatee,
+        uint112 mintAmount
+    ) public {
+        hevm.assume(delegatorPk != 0);
+        address owner = hevm.addr(delegatorPk);
+
+        hevm.assume(mintAmount >= beforeDelegateAmount);
+        token.mint(owner, mintAmount);
+        token.setMaxDelegates(2);
+
+        if (oldDelegatee == address(0)) {
+            hevm.expectRevert(abi.encodeWithSignature("DelegationError()"));
+        }
+
+        hevm.prank(owner);
+        token.delegate(oldDelegatee, beforeDelegateAmount);
+
+        (uint8 v, bytes32 r, bytes32 s) = hevm.sign(
+            delegatorPk,
+            keccak256(
+                abi.encodePacked(
+                    "\x19\x01",
+                    token.DOMAIN_SEPARATOR(),
+                    keccak256(abi.encode(token.DELEGATION_TYPEHASH(), newDelegatee, 0, block.timestamp))
+                )
+            )
+        );
+
+        token.delegateBySig(newDelegatee, 0, block.timestamp, v, r, s);
+        require(oldDelegatee == newDelegatee || token.delegatesVotesCount(owner, oldDelegatee) == 0);
+        require(token.delegatesVotesCount(owner, newDelegatee) == mintAmount);
+        require(token.userDelegatedVotes(owner) == mintAmount);
+        require(token.getVotes(newDelegatee) == mintAmount);
+        require(token.freeVotes(owner) == 0);
     }
 
     /*///////////////////////////////////////////////////////////////
