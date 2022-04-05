@@ -1,37 +1,25 @@
-# Developer documentation
+# Flywheel v2
 
-<!-- TODO -->
+Flywheel is a suite of open source token incentives and governance infrastructure using modern and modular solidity patterns to easily interface with other platforms.
 
-Welcome to the developer documentation of the Fei Protocol. Fei itself is a collaterised stablecoin and is a member of the TRIBE DAO ecosystem. This guide provides you with technical documentation about the protocol design, key mechanisms and primitives and also documents the smart contract API.
+It is built by the [Tribe DAO](http://tribedao.xyz/) using [Foundry](https://github.com/gakonst/foundry) and [Solmate](https://github.com/Rari-Capital/solmate).
+
+Flywheel is completely on-chain and composable, for maximum compatibility with smart contract systems.
+
+## Overview
+
+Flywheel has two major components, the core incentives engine (including a suite of rewards modules and boosters) and ERC20 token utilities (xERC4626, ERC20MultiVotes, ERC20Gauges).
+
+Production examples of the incentives engine:
+
+- [fuse-flywheel](https://github.com/fei-protocol/fuse-flywheel) used to reward depositors to Fuse lending markets.
 
 ## Contents
 
-### Protocol design, architecture and operation
+## Flywheel
 
-## Governance
+- [Flywheel](Flywheel.md)
 
-- [Governance](Governance.md)
+## Smart contract API
 
-### Protocol controlled value
-
-- [PCV management](PCVManagement.md)
-- [PCV deposits](PCVDeposits.md)
-- [Collaterisation](Collaterisation.md)
-
-### Stability
-
-- [Stability mechanism](StabilityMechanism.md)
-- [Peg stability modules](PegStabilityModules.md)
-
-### Protocol operation
-
-- [Access control](AccessControl.md)
-- [Security](Security.md)
-- [Monitoring](Monitoring.md)
-
-### How to contribute
-
-- [Developer environment](DevEnvironment.md)
-- [End-to-end tests](EndtoEndTests.md)
-
-### Smart contract API
+- [API](API/)
