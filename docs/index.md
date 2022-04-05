@@ -18,8 +18,8 @@ Production examples of the incentives engine:
 
 ## Flywheel
 
-- [Flywheel](Flywheel.md)
+- [Flywheel](./flywheel.md)
 
 ## Smart contract API
 
-- [API](API/)
+- [API](./API)

@@ -1,3 +1,8 @@
 theme: jekyll-theme-slate
 title: Flywheel v2 documentation
 description: Developer documentation for Flywheel v2
+plugins:
+  - jekyll-relative-links
+relative_links:
+  enabled: true
+  collections: true
