@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-pragma solidity 0.8.10;
+pragma solidity ^0.8.10;
 
 import {SafeTransferLib, ERC20} from "solmate/utils/SafeTransferLib.sol";
 import {IFlywheelRewards} from "../interfaces/IFlywheelRewards.sol";
