@@ -145,10 +145,14 @@ contract FlywheelCore is Auth {
 
     function _addStrategyForRewards(ERC20 strategy) internal {
         require(strategyState[strategy].index == 0, "strategy");
-        strategyState[strategy] = RewardsState({index: ONE, lastUpdatedTimestamp: block.timestamp.safeCastTo32()});
+        uint32 lastUpdatedTimestamp = block.timestamp.safeCastTo32();
+        strategyState[strategy] = RewardsState({index: ONE, lastUpdatedTimestamp: lastUpdatedTimestamp});
 
         allStrategies.push(strategy);
         emit AddStrategy(address(strategy));
+
+        // initialize the rewards accrual
+        flywheelRewards.getAccruedRewards(strategy, lastUpdatedTimestamp);
     }
 
     function getAllStrategies() external view returns (ERC20[] memory) {
