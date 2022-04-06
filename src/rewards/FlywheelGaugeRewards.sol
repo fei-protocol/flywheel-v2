@@ -209,7 +209,7 @@ contract FlywheelGaugeRewards is Auth, BaseFlywheelRewards {
         }
     }
 
-    function initializeStrategy(ERC20 strategy, bytes memory data) external onlyFlywheel {
+    function initializeStrategy(ERC20 gauge, bytes memory) external onlyFlywheel {
         gaugeQueuedRewards[gauge] = QueuedRewards({
             priorCycleRewards: 0,
             cycleRewards: 0,
