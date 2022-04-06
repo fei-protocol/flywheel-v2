@@ -1,8 +1,8 @@
-- name: Flywheel v2
-  link: /
-- name: Flywheel Incentives Engine
-  link: /flywheel.md
-- name: Token Utilities
-  link: /token-utilites.md
-- name: Fei
-  link: https://fei.money
+- title: Flywheel v2
+  url: /
+- title: Flywheel Incentives Engine
+  url: /flywheel.md
+- title: Token Utilities
+  url: /token-utilites.md
+- title: Fei
+  url: https://fei.money
