@@ -8,18 +8,19 @@ Flywheel is completely on-chain and composable, for maximum compatibility with s
 
 ## Overview
 
-Flywheel has two major components, the core incentives engine (including a suite of rewards modules and boosters) and ERC20 token utilities (xERC4626, ERC20MultiVotes, ERC20Gauges).
+Flywheel has two major components:
 
-Production examples of the incentives engine:
+- [the core incentives engine](./flywheel.md)
+- [ERC20 token utilities (multi-votes and gauges)](./token-utilities.md)
+
+Open source examples of the incentives engine:
 
 - [fuse-flywheel](https://github.com/fei-protocol/fuse-flywheel) used to reward depositors to Fuse lending markets.
 
-## Contents
+Open source examples of the ERC20 token utilities:
 
-## Flywheel
-
-- [Flywheel](./flywheel.md)
+- [xTRIBE](https://github.com/fei-protocol/xTRIBE)
 
 ## Smart contract API
 
-- [API](./API)
+- under construction

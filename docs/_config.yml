@@ -1,8 +1,15 @@
 theme: jekyll-theme-slate
-title: Flywheel v2 documentation
+title: Flywheel v2
 description: Developer documentation for Flywheel v2
 plugins:
   - jekyll-relative-links
 relative_links:
   enabled: true
   collections: true
+
+navbar-links:
+  Flywheel Incentives Engine: "flywheel"
+  Resources:
+    - Beautiful Jekyll: "https://beautifuljekyll.com"
+    - Learn markdown: "https://www.markdowntutorial.com/"
+  Fei: "https://fei.money"
