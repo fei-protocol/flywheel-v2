@@ -1,4 +1,6 @@
-### FlywheelCore Incentives Engine
+# FlywheelCore Incentives Engine
+
+## Overview
 
 The incentives engine is used to reward _users_ for holding tokens in _strategies_. This can be as simple as vanilla liquidity mining or involve complex vote-escrow and boosting mechanics. Some common strategies include:
 
@@ -24,10 +26,6 @@ The rewards can be divided according to any algorithm, some examples:
 Normally, rewards for users are calulated by dividing the user's `balanceOf` on the strategy divided by the `totalSupply` of the strategy.
 
 However, some strategies require additional logic to boost or otherwise transform the user's balance. This is where the boosting module can do just that. If added to the incentives engine, it calculates a users rewards by dividing their boosted balance by the bosoted total supply.
-
-### ERC20 Token Utilities
-
-**Coming Soon**
 
 ## Adding Flywheel to Your Smart Contracts
 

@@ -6,10 +6,3 @@ plugins:
 relative_links:
   enabled: true
   collections: true
-
-navbar-links:
-  Flywheel Incentives Engine: "flywheel"
-  Resources:
-    - Beautiful Jekyll: "https://beautifuljekyll.com"
-    - Learn markdown: "https://www.markdowntutorial.com/"
-  Fei: "https://fei.money"
