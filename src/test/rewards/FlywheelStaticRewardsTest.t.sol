@@ -5,7 +5,7 @@ import {DSTestPlus} from "solmate/test/utils/DSTestPlus.sol";
 import {MockERC20} from "solmate/test/utils/mocks/MockERC20.sol";
 import {FlywheelCore} from "../../FlywheelCore.sol";
 
-import {FlywheelStaticRewards, Authority} from "../../rewards/FlywheelStaticRewards.sol";
+import {FlywheelStaticRewards} from "../../rewards/FlywheelStaticRewards.sol";
 
 contract FlywheelStaticRewardsTest is DSTestPlus {
     FlywheelStaticRewards rewards;
@@ -18,18 +18,18 @@ contract FlywheelStaticRewardsTest is DSTestPlus {
 
         strategy = new MockERC20("test strategy", "TKN", 18);
 
-        rewards = new FlywheelStaticRewards(FlywheelCore(address(this)), address(this), Authority(address(0)));
+        rewards = new FlywheelStaticRewards(FlywheelCore(address(this)));
     }
 
-    function testSetRewardsInfo() public {
+    function testInitializeStrategy() public {
         (uint224 rewardsPerSecond, uint32 rewardsEndTimestamp) = rewards.rewardsInfo(strategy);
         require(rewardsPerSecond == 0);
         require(rewardsEndTimestamp == 0);
 
         uint32 newEnd = uint32(block.timestamp) + 100;
-        rewards.setRewardsInfo(
+        rewards.initializeStrategy(
             strategy,
-            FlywheelStaticRewards.RewardsInfo({rewardsPerSecond: 1 ether, rewardsEndTimestamp: newEnd})
+            abi.encode(FlywheelStaticRewards.RewardsInfo({rewardsPerSecond: 1 ether, rewardsEndTimestamp: newEnd}))
         );
 
         (rewardsPerSecond, rewardsEndTimestamp) = rewards.rewardsInfo(strategy);
@@ -40,7 +40,7 @@ contract FlywheelStaticRewardsTest is DSTestPlus {
 
     function testGetAccruedRewards() public {
         hevm.warp(1000);
-        testSetRewardsInfo();
+        testInitializeStrategy();
 
         rewardToken.mint(address(rewards), 100 ether);
 
@@ -50,7 +50,7 @@ contract FlywheelStaticRewardsTest is DSTestPlus {
 
     function testGetAccruedRewardsAfterEnd() public {
         hevm.warp(1000);
-        testSetRewardsInfo();
+        testInitializeStrategy();
         hevm.warp(2000);
 
         rewardToken.mint(address(rewards), 100 ether);
@@ -61,7 +61,7 @@ contract FlywheelStaticRewardsTest is DSTestPlus {
 
     function testGetAccruedRewardsCappedAfterEnd() public {
         hevm.warp(1000);
-        testSetRewardsInfo();
+        testInitializeStrategy();
         hevm.warp(2000);
 
         rewardToken.mint(address(rewards), 20 ether);

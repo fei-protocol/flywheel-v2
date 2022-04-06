@@ -32,6 +32,15 @@ abstract contract FlywheelDynamicRewards is BaseFlywheelRewards {
         rewardsCycleLength = _rewardsCycleLength;
     }
 
+    function initializeStrategy(ERC20 strategy, bytes memory) external onlyFlywheel {
+        uint192 rewards = getNextCycleRewards(strategy);
+        uint32 timestamp = block.timestamp.safeCastTo32();
+        uint32 end = ((timestamp + rewardsCycleLength) / rewardsCycleLength) * rewardsCycleLength;
+
+        rewardsCycle[strategy] = RewardsCycle({start: timestamp, end: end, reward: rewards});
+        emit NewRewardsCycle(timestamp, end, rewards);
+    }
+
     /**
      @notice calculate and transfer accrued rewards to flywheel core
      @param strategy the strategy to accrue rewards for

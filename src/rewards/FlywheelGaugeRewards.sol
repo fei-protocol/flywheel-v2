@@ -209,6 +209,14 @@ contract FlywheelGaugeRewards is Auth, BaseFlywheelRewards {
         }
     }
 
+    function initializeStrategy(ERC20 strategy, bytes memory data) external onlyFlywheel {
+        gaugeQueuedRewards[gauge] = QueuedRewards({
+            priorCycleRewards: 0,
+            cycleRewards: 0,
+            storedCycle: 0
+        });
+    }
+
     /**
      @notice calculate and transfer accrued rewards to flywheel core
      @param gauge the gauge to accrue rewards for

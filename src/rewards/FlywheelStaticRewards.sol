@@ -1,14 +1,13 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 pragma solidity 0.8.10;
 
-import {Auth, Authority} from "solmate/auth/Auth.sol";
 import "./BaseFlywheelRewards.sol";
 
 /** 
  @title Flywheel Static Reward Stream
  @notice Determines rewards per strategy based on a fixed reward rate per second
 */
-contract FlywheelStaticRewards is Auth, BaseFlywheelRewards {
+contract FlywheelStaticRewards is BaseFlywheelRewards {
     event RewardsInfoUpdate(ERC20 indexed strategy, uint224 rewardsPerSecond, uint32 rewardsEndTimestamp);
 
     struct RewardsInfo {
@@ -22,18 +21,21 @@ contract FlywheelStaticRewards is Auth, BaseFlywheelRewards {
     /// @notice rewards info per strategy
     mapping(ERC20 => RewardsInfo) public rewardsInfo;
 
-    constructor(
-        FlywheelCore _flywheel,
-        address _owner,
-        Authority _authority
-    ) Auth(_owner, _authority) BaseFlywheelRewards(_flywheel) {}
+    constructor(FlywheelCore _flywheel) BaseFlywheelRewards(_flywheel) {}
 
-    /**
-     @notice set rewards per second and rewards end time for Fei Rewards
-     @param strategy the strategy to accrue rewards for
-     @param rewards the rewards info for the strategy
-     */
-    function setRewardsInfo(ERC20 strategy, RewardsInfo calldata rewards) external requiresAuth {
+//    /**
+//     @notice set rewards per second and rewards end time for Fei Rewards
+//     @param strategy the strategy to accrue rewards for
+//     @param rewards the rewards info for the strategy
+//     */
+//    function setRewardsInfo(ERC20 strategy, RewardsInfo calldata rewards) external requiresAuth {
+//        rewardsInfo[strategy] = rewards;
+//        emit RewardsInfoUpdate(strategy, rewards.rewardsPerSecond, rewards.rewardsEndTimestamp);
+//    }
+
+    // TODO replace setRewardsInfo
+    function initializeStrategy(ERC20 strategy, bytes memory data) external onlyFlywheel {
+        RewardsInfo memory rewards = abi.decode(data, (RewardsInfo));
         rewardsInfo[strategy] = rewards;
         emit RewardsInfoUpdate(strategy, rewards.rewardsPerSecond, rewards.rewardsEndTimestamp);
     }

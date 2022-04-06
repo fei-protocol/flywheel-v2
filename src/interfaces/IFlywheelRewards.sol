@@ -32,6 +32,8 @@ interface IFlywheelRewards {
     */
     function getAccruedRewards(ERC20 strategy, uint32 lastUpdatedTimestamp) external returns (uint256 rewards);
 
+    function initializeStrategy(ERC20 strategy, bytes memory data) external;
+
     /// @notice return the flywheel core address
     function flywheel() external view returns (FlywheelCore);
 

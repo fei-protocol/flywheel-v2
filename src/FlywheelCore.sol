@@ -139,8 +139,11 @@ contract FlywheelCore is Auth {
     event AddStrategy(address indexed newStrategy);
 
     /// @notice initialize a new strategy
-    function addStrategyForRewards(ERC20 strategy) external requiresAuth {
+    function addStrategyForRewards(ERC20 strategy, bytes memory data) external requiresAuth {
         _addStrategyForRewards(strategy);
+
+        // initialize the rewards state
+        flywheelRewards.initializeStrategy(strategy, data);
     }
 
     function _addStrategyForRewards(ERC20 strategy) internal {
