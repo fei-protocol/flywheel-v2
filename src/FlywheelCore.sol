@@ -35,10 +35,10 @@ contract FlywheelCore is Auth {
     ERC20[] public allStrategies;
 
     /// @notice the rewards contract for managing streams
-    IFlywheelRewards public flywheelRewards;
+    IFlywheelRewards[] public flywheelRewards;
 
     /// @notice optional booster module for calculating virtual balances on strategies
-    IFlywheelBooster public flywheelBooster;
+    IFlywheelBooster[] public flywheelBooster;
 
     constructor(
         ERC20 _rewardToken,
@@ -48,8 +48,8 @@ contract FlywheelCore is Auth {
         Authority _authority
     ) Auth(_owner, _authority) {
         rewardToken = _rewardToken;
-        flywheelRewards = _flywheelRewards;
-        flywheelBooster = _flywheelBooster;
+        flywheelRewards.push(_flywheelRewards);
+        flywheelBooster.push(_flywheelBooster);
     }
 
     /*///////////////////////////////////////////////////////////////
@@ -72,8 +72,11 @@ contract FlywheelCore is Auth {
     */
     event ClaimRewards(address indexed user, uint256 amount);
 
-    /// @notice The accrued but not yet transferred rewards for each user
-    mapping(address => uint256) public rewardsAccrued;
+    /// @notice The accrued but not yet transferred rewards for each user per rewards contract
+    mapping(address => mapping(uint8 => uint256)) public rewardsAccrued;
+
+    /// @notice The total accrued but not yet transferred rewards for each user across all rewards contract
+    mapping(address => uint256) public totalRewardsAccrued;
 
     /** 
       @notice accrue rewards for a single user on a strategy
@@ -81,13 +84,17 @@ contract FlywheelCore is Auth {
       @param user the user to be accrued
       @return the cumulative amount of rewards accrued to user (including prior)
     */
-    function accrue(ERC20 strategy, address user) public returns (uint256) {
+    function accrue(
+        ERC20 strategy,
+        address user,
+        uint8 index
+    ) public returns (uint256) {
         RewardsState memory state = strategyState[strategy];
 
         if (state.index == 0) return 0;
 
-        state = accrueStrategy(strategy, state);
-        return accrueUser(strategy, user, state);
+        state = accrueStrategy(strategy, state, index);
+        return accrueUser(strategy, user, state, index);
     }
 
     /** 
@@ -101,14 +108,32 @@ contract FlywheelCore is Auth {
     function accrue(
         ERC20 strategy,
         address user,
-        address secondUser
+        address secondUser,
+        uint8 index
     ) public returns (uint256, uint256) {
         RewardsState memory state = strategyState[strategy];
 
         if (state.index == 0) return (0, 0);
 
-        state = accrueStrategy(strategy, state);
-        return (accrueUser(strategy, user, state), accrueUser(strategy, secondUser, state));
+        state = accrueStrategy(strategy, state, index);
+        return (accrueUser(strategy, user, state, index), accrueUser(strategy, secondUser, state, index));
+    }
+
+    /** 
+      @notice claim rewards for a given user
+      @param user the user claiming rewards
+      @dev this function is public, and all rewards transfer to the user
+    */
+    function claimRewards(address user, uint8 index) external {
+        uint256 accrued = rewardsAccrued[user][index];
+
+        if (accrued != 0) {
+            rewardsAccrued[user][index] = 0;
+
+            rewardToken.safeTransferFrom(address(flywheelRewards[index]), user, accrued);
+
+            emit ClaimRewards(user, accrued);
+        }
     }
 
     /** 
@@ -117,15 +142,19 @@ contract FlywheelCore is Auth {
       @dev this function is public, and all rewards transfer to the user
     */
     function claimRewards(address user) external {
-        uint256 accrued = rewardsAccrued[user];
+        uint256 totalAccrued = totalRewardsAccrued[user];
 
-        if (accrued != 0) {
-            rewardsAccrued[user] = 0;
+        if (totalAccrued != 0) {
+            totalRewardsAccrued[user] = 0;
+            uint256 accrued;
+            for (uint8 index; index < flywheelRewards.length; index++) {
+                accrued = rewardsAccrued[user][index];
+                rewardsAccrued[user][index] = 0;
 
-            rewardToken.safeTransferFrom(address(flywheelRewards), user, accrued);
-
-            emit ClaimRewards(user, accrued);
+                rewardToken.safeTransferFrom(address(flywheelRewards[index]), user, accrued);
+            }
         }
+        emit ClaimRewards(user, totalAccrued);
     }
 
     /*///////////////////////////////////////////////////////////////
@@ -159,31 +188,35 @@ contract FlywheelCore is Auth {
       @notice Emitted when the rewards module changes
       @param newFlywheelRewards the new rewards module
     */
-    event FlywheelRewardsUpdate(address indexed newFlywheelRewards);
+    event FlywheelRewardsUpdate(uint8 indexed index, address newFlywheelRewards);
 
     /// @notice swap out the flywheel rewards contract
-    function setFlywheelRewards(IFlywheelRewards newFlywheelRewards) external requiresAuth {
-        uint256 oldRewardBalance = rewardToken.balanceOf(address(flywheelRewards));
+    function setFlywheelRewards(IFlywheelRewards newFlywheelRewards, uint8 index) external requiresAuth {
+        uint256 oldRewardBalance = rewardToken.balanceOf(address(flywheelRewards[index]));
         if (oldRewardBalance > 0) {
-            rewardToken.safeTransferFrom(address(flywheelRewards), address(newFlywheelRewards), oldRewardBalance);
+            rewardToken.safeTransferFrom(
+                address(flywheelRewards[index]),
+                address(newFlywheelRewards),
+                oldRewardBalance
+            );
         }
 
-        flywheelRewards = newFlywheelRewards;
+        flywheelRewards[index] = newFlywheelRewards;
 
-        emit FlywheelRewardsUpdate(address(newFlywheelRewards));
+        emit FlywheelRewardsUpdate(index, address(newFlywheelRewards));
     }
 
     /** 
       @notice Emitted when the booster module changes
       @param newBooster the new booster module
     */
-    event FlywheelBoosterUpdate(address indexed newBooster);
+    event FlywheelBoosterUpdate(uint8 indexed index, address newBooster);
 
     /// @notice swap out the flywheel booster contract
-    function setBooster(IFlywheelBooster newBooster) external requiresAuth {
-        flywheelBooster = newBooster;
+    function setBooster(IFlywheelBooster newBooster, uint8 index) external requiresAuth {
+        flywheelBooster[index] = newBooster;
 
-        emit FlywheelBoosterUpdate(address(newBooster));
+        emit FlywheelBoosterUpdate(index, address(newBooster));
     }
 
     /*///////////////////////////////////////////////////////////////
@@ -207,18 +240,19 @@ contract FlywheelCore is Auth {
     mapping(ERC20 => mapping(address => uint224)) public userIndex;
 
     /// @notice accumulate global rewards on a strategy
-    function accrueStrategy(ERC20 strategy, RewardsState memory state)
-        private
-        returns (RewardsState memory rewardsState)
-    {
+    function accrueStrategy(
+        ERC20 strategy,
+        RewardsState memory state,
+        uint8 index
+    ) private returns (RewardsState memory rewardsState) {
         // calculate accrued rewards through module
-        uint256 strategyRewardsAccrued = flywheelRewards.getAccruedRewards(strategy, state.lastUpdatedTimestamp);
+        uint256 strategyRewardsAccrued = flywheelRewards[index].getAccruedRewards(strategy, state.lastUpdatedTimestamp);
 
         rewardsState = state;
         if (strategyRewardsAccrued > 0) {
             // use the booster or token supply to calculate reward index denominator
-            uint256 supplyTokens = address(flywheelBooster) != address(0)
-                ? flywheelBooster.boostedTotalSupply(strategy)
+            uint256 supplyTokens = address(flywheelBooster[index]) != address(0)
+                ? flywheelBooster[index].boostedTotalSupply(strategy)
                 : strategy.totalSupply();
 
             uint224 deltaIndex;
@@ -238,7 +272,8 @@ contract FlywheelCore is Auth {
     function accrueUser(
         ERC20 strategy,
         address user,
-        RewardsState memory state
+        RewardsState memory state,
+        uint8 index
     ) private returns (uint256) {
         // load indices
         uint224 strategyIndex = state.index;
@@ -255,15 +290,16 @@ contract FlywheelCore is Auth {
 
         uint224 deltaIndex = strategyIndex - supplierIndex;
         // use the booster or token balance to calculate reward balance multiplier
-        uint256 supplierTokens = address(flywheelBooster) != address(0)
-            ? flywheelBooster.boostedBalanceOf(strategy, user)
+        uint256 supplierTokens = address(flywheelBooster[index]) != address(0)
+            ? flywheelBooster[index].boostedBalanceOf(strategy, user)
             : strategy.balanceOf(user);
 
         // accumulate rewards by multiplying user tokens by rewardsPerToken index and adding on unclaimed
         uint256 supplierDelta = (supplierTokens * deltaIndex) / ONE;
-        uint256 supplierAccrued = rewardsAccrued[user] + supplierDelta;
+        uint256 supplierAccrued = rewardsAccrued[user][index] + supplierDelta;
 
-        rewardsAccrued[user] = supplierAccrued;
+        rewardsAccrued[user][index] = supplierAccrued;
+        totalRewardsAccrued[user] += supplierAccrued;
 
         emit AccrueRewards(strategy, user, supplierDelta, strategyIndex);
 
