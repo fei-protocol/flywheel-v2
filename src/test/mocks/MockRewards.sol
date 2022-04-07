@@ -16,4 +16,8 @@ contract MockRewards is BaseFlywheelRewards {
     function getAccruedRewards(ERC20 strategy, uint32) external view override onlyFlywheel returns (uint256 amount) {
         return rewardsAmount[strategy];
     }
+
+    function initializeStrategy(ERC20 strategy, bytes calldata data) external onlyFlywheel {
+
+    }
 }

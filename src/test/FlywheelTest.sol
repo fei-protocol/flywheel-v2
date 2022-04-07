@@ -40,7 +40,7 @@ contract FlywheelTest is DSTestPlus {
     }
 
     function testAddStrategy(ERC20 strat) public {
-        flywheel.addStrategyForRewards(strat);
+        flywheel.addStrategyForRewards(strat, "");
         (uint224 index, uint32 timestamp) = flywheel.strategyState(strat);
         require(index == flywheel.ONE());
         require(timestamp == block.timestamp);
@@ -48,7 +48,7 @@ contract FlywheelTest is DSTestPlus {
 
     function testFailAddStrategy() public {
         hevm.prank(address(1));
-        flywheel.addStrategyForRewards(strategy);
+        flywheel.addStrategyForRewards(strategy, "");
     }
 
     function testSetFlywheelRewards(uint256 mintAmount) public {
@@ -91,7 +91,7 @@ contract FlywheelTest is DSTestPlus {
         rewardToken.mint(address(rewards), rewardAmount);
         rewards.setRewardsAmount(strategy, rewardAmount);
 
-        flywheel.addStrategyForRewards(strategy);
+        flywheel.addStrategyForRewards(strategy, "");
 
         uint256 accrued = flywheel.accrue(strategy, user);
 
@@ -121,7 +121,7 @@ contract FlywheelTest is DSTestPlus {
         rewardToken.mint(address(rewards), rewardAmount);
         rewards.setRewardsAmount(strategy, rewardAmount);
 
-        flywheel.addStrategyForRewards(strategy);
+        flywheel.addStrategyForRewards(strategy, "");
 
         (uint256 accrued1, uint256 accrued2) = flywheel.accrue(strategy, user, user2);
 
@@ -169,7 +169,7 @@ contract FlywheelTest is DSTestPlus {
         rewardToken.mint(address(rewards), 10 ether);
         rewards.setRewardsAmount(strategy, 10 ether);
 
-        flywheel.addStrategyForRewards(strategy);
+        flywheel.addStrategyForRewards(strategy, "");
 
         uint256 accrued = flywheel.accrue(strategy, user);
 
@@ -195,7 +195,7 @@ contract FlywheelTest is DSTestPlus {
         rewardToken.mint(address(rewards), 10 ether);
         rewards.setRewardsAmount(strategy, 10 ether);
 
-        flywheel.addStrategyForRewards(strategy);
+        flywheel.addStrategyForRewards(strategy, "");
 
         (uint256 accrued, uint256 accrued2) = flywheel.accrue(strategy, user, user2);
 
@@ -267,7 +267,7 @@ contract FlywheelTest is DSTestPlus {
         rewardToken.mint(address(rewards), rewardAmount);
         rewards.setRewardsAmount(strategy, rewardAmount);
 
-        flywheel.addStrategyForRewards(strategy);
+        flywheel.addStrategyForRewards(strategy, "");
 
         uint256 accrued = flywheel.accrue(strategy, user);
 

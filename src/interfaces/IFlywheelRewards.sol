@@ -32,6 +32,11 @@ interface IFlywheelRewards {
     */
     function getAccruedRewards(ERC20 strategy, uint32 lastUpdatedTimestamp) external returns (uint256 rewards);
 
+    /**
+     @notice initialize the state of the strategy with external data
+     @param strategy the strategy to initialize
+     @param data arbitrary data that is abi.encode()-ed
+    */
     function initializeStrategy(ERC20 strategy, bytes memory data) external;
 
     /// @notice return the flywheel core address

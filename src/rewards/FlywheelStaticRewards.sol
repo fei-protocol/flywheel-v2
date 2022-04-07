@@ -24,18 +24,14 @@ contract FlywheelStaticRewards is BaseFlywheelRewards {
     constructor(FlywheelCore _flywheel) BaseFlywheelRewards(_flywheel) {}
 
     /**
-     @notice set rewards per second and rewards end time for Fei Rewards
-     @param strategy the strategy to accrue rewards for
-     @param rewards the rewards info for the strategy
-     */
-    function setRewardsInfo(ERC20 strategy, RewardsInfo calldata rewards) external requiresAuth {
-        rewardsInfo[strategy] = rewards;
-        emit RewardsInfoUpdate(strategy, rewards.rewardsPerSecond, rewards.rewardsEndTimestamp);
-    }
-
+     @notice initialize the state of the strategy with external data
+     @param strategy the strategy to initialize
+     @param data arbitrary data that is abi.encode()-ed
+    */
     function initializeStrategy(ERC20 strategy, bytes memory data) external onlyFlywheel {
         RewardsInfo memory rewards = abi.decode(data, (RewardsInfo));
-        setRewardsInfo(strategy, rewards);
+        rewardsInfo[strategy] = rewards;
+        emit RewardsInfoUpdate(strategy, rewards.rewardsPerSecond, rewards.rewardsEndTimestamp);
     }
 
     /**

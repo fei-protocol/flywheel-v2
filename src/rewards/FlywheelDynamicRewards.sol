@@ -32,6 +32,10 @@ abstract contract FlywheelDynamicRewards is BaseFlywheelRewards {
         rewardsCycleLength = _rewardsCycleLength;
     }
 
+    /**
+     @notice initialize the state of the strategy with external data
+     @param strategy the strategy to initialize
+        */
     function initializeStrategy(ERC20 strategy, bytes memory) external onlyFlywheel {
         uint192 rewards = getNextCycleRewards(strategy);
         uint32 timestamp = block.timestamp.safeCastTo32();
