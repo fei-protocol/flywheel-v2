@@ -100,7 +100,7 @@ abstract contract ERC20Gauges is ERC20, Auth {
 
     /// @notice returns the stored weight of a given gauge. This is the snapshotted weight as-of the end of the last cycle.
     function getStoredGaugeWeight(address gauge) public view returns (uint112) {
-        if (!_gauges.contains(gauge)) return 0;
+        if (_deprecatedGauges.contains(gauge)) return 0;
         return _getStoredWeight(_getGaugeWeight[gauge], _getGaugeCycleEnd());
     }
 
@@ -139,9 +139,9 @@ abstract contract ERC20Gauges is ERC20, Auth {
         }
     }
 
-    /// @notice returns true if `gauge` is in gauges
+    /// @notice returns true if `gauge` is not in deprecated gauges
     function isGauge(address gauge) external view returns (bool) {
-        return _gauges.contains(gauge);
+        return !_deprecatedGauges.contains(gauge);
     }
 
     /// @notice returns the number of live gauges
@@ -206,7 +206,7 @@ abstract contract ERC20Gauges is ERC20, Auth {
      @return the proportion of `quantity` allocated to `gauge`. Returns 0 if gauge is not live, even if it has weight.
     */
     function calculateGaugeAllocation(address gauge, uint256 quantity) external view returns (uint256) {
-        if (!_gauges.contains(gauge)) return 0;
+        if (_deprecatedGauges.contains(gauge)) return 0;
         uint32 currentCycle = _getGaugeCycleEnd();
 
         uint112 total = _getStoredWeight(_totalWeight, currentCycle);
@@ -254,7 +254,7 @@ abstract contract ERC20Gauges is ERC20, Auth {
         uint112 weight,
         uint32 cycle
     ) internal {
-        if (!_gauges.contains(gauge)) revert InvalidGaugeError();
+        if (_deprecatedGauges.contains(gauge)) revert InvalidGaugeError();
         unchecked {
             if (cycle - block.timestamp <= incrementFreezeWindow) revert IncrementFreezeError();
         }
@@ -342,7 +342,7 @@ abstract contract ERC20Gauges is ERC20, Auth {
         getUserGaugeWeight[user][gauge] = oldWeight - weight;
         if (oldWeight == weight) {
             // If removing all weight, remove gauge from user list.
-            assert(_userGauges[user].remove(gauge));
+            require(_userGauges[user].remove(gauge));
         }
 
         _writeGaugeWeight(_getGaugeWeight[gauge], _subtract, weight, cycle);
@@ -443,6 +443,7 @@ abstract contract ERC20Gauges is ERC20, Auth {
     event CanContractExceedMaxGaugesUpdate(address indexed account, bool canContractExceedMaxGauges);
 
     /// @notice the default maximum amount of gauges a user can allocate to.
+    /// @dev if this number is ever lowered, or a contract has an override, then existing addresses MAY have more gauges allocated to. Use `numUserGauges` to check this.
     uint256 public maxGauges;
 
     /// @notice an approve list for contracts to go above the max gauge limit.
@@ -454,9 +455,10 @@ abstract contract ERC20Gauges is ERC20, Auth {
     }
 
     function _addGauge(address gauge) internal returns (uint112 weight) {
-        // add and fail loud if already present or zero address
-        if (gauge == address(0) || !_gauges.add(gauge)) revert InvalidGaugeError();
-        _deprecatedGauges.remove(gauge); // silently remove gauge from deprecated if present
+        bool newAdd = _gauges.add(gauge);
+        bool previouslyDeprecated = _deprecatedGauges.remove(gauge);
+        // add and fail loud if zero address or already present and not deprecated
+        if (gauge == address(0) || !(newAdd || previouslyDeprecated)) revert InvalidGaugeError();
 
         uint32 currentCycle = _getGaugeCycleEnd();
 
@@ -475,9 +477,8 @@ abstract contract ERC20Gauges is ERC20, Auth {
     }
 
     function _removeGauge(address gauge) internal {
-        // remove and fail loud if not present
-        if (!_gauges.remove(gauge)) revert InvalidGaugeError();
-        _deprecatedGauges.add(gauge); // add gauge to deprecated. Must not be present if previously in live set.
+        // add to deprecated and fail loud if not present
+        if (!_deprecatedGauges.add(gauge)) revert InvalidGaugeError();
 
         uint32 currentCycle = _getGaugeCycleEnd();
 
@@ -497,6 +498,7 @@ abstract contract ERC20Gauges is ERC20, Auth {
     }
 
     /// @notice set the new max gauges. Requires auth by `authority`.
+    /// @dev if this is set to a lower number than the current max, users MAY have more gauges active than the max. Use `numUserGauges` to check this.
     function setMaxGauges(uint256 newMax) external requiresAuth {
         uint256 oldMax = maxGauges;
         maxGauges = newMax;
@@ -564,7 +566,7 @@ abstract contract ERC20Gauges is ERC20, Auth {
             uint112 userGaugeWeight = getUserGaugeWeight[user][gauge];
             if (userGaugeWeight != 0) {
                 // If the gauge is live (not deprecated), include its weight in the total to remove
-                if (_gauges.contains(gauge)) {
+                if (!_deprecatedGauges.contains(gauge)) {
                     totalFreed += userGaugeWeight;
                 }
                 userFreed += userGaugeWeight;
