@@ -100,6 +100,7 @@ abstract contract ERC20Gauges is ERC20, Auth {
 
     /// @notice returns the stored weight of a given gauge. This is the snapshotted weight as-of the end of the last cycle.
     function getStoredGaugeWeight(address gauge) public view returns (uint112) {
+        if (!_gauges.contains(gauge)) return 0;
         return _getStoredWeight(_getGaugeWeight[gauge], _getGaugeCycleEnd());
     }
 
@@ -448,11 +449,11 @@ abstract contract ERC20Gauges is ERC20, Auth {
     mapping(address => bool) public canContractExceedMaxGauges;
 
     /// @notice add a new gauge. Requires auth by `authority`.
-    function addGauge(address gauge) external requiresAuth {
-        _addGauge(gauge);
+    function addGauge(address gauge) external requiresAuth returns (uint112) {
+        return _addGauge(gauge);
     }
 
-    function _addGauge(address gauge) internal {
+    function _addGauge(address gauge) internal returns (uint112 weight) {
         // add and fail loud if already present or zero address
         if (gauge == address(0) || !_gauges.add(gauge)) revert InvalidGaugeError();
         _deprecatedGauges.remove(gauge); // silently remove gauge from deprecated if present
@@ -460,7 +461,7 @@ abstract contract ERC20Gauges is ERC20, Auth {
         uint32 currentCycle = _getGaugeCycleEnd();
 
         // Check if some previous weight exists and re-add to total. Gauge and user weights are preserved.
-        uint112 weight = _getGaugeWeight[gauge].currentWeight;
+        weight = _getGaugeWeight[gauge].currentWeight;
         if (weight > 0) {
             _writeGaugeWeight(_totalWeight, _add, weight, currentCycle);
         }
