@@ -141,7 +141,7 @@ abstract contract ERC20Gauges is ERC20, Auth {
 
     /// @notice returns true if `gauge` is not in deprecated gauges
     function isGauge(address gauge) external view returns (bool) {
-        return !_deprecatedGauges.contains(gauge);
+        return _gauges.contains(gauge) && !_deprecatedGauges.contains(gauge);
     }
 
     /// @notice returns the number of live gauges
