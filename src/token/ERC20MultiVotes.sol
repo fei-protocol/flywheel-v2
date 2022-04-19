@@ -140,6 +140,10 @@ abstract contract ERC20MultiVotes is ERC20, Auth {
     /// @dev Emitted when a token transfer or delegate change results in changes to an account's voting power.
     event DelegateVotesChanged(address indexed delegate, uint256 previousBalance, uint256 newBalance);
 
+    /// @notice An event thats emitted when an account changes its delegate
+    /// @dev this is used for backward compatibility with OZ interfaces for ERC20Votes and ERC20VotesComp.
+    event DelegateChanged(address indexed delegator, address indexed fromDelegate, address indexed toDelegate);
+
     /// @dev thrown when attempting to delegate more votes than an address has free, or exceeding the max delegates
     error DelegationError();
 
@@ -186,8 +190,8 @@ abstract contract ERC20MultiVotes is ERC20, Auth {
      * @param amount the amount of votes received.
      * @dev requires "freeVotes(msg.sender) > amount" and will not exceed max delegates
      */
-    function delegate(address delegatee, uint256 amount) public virtual {
-        _delegate(msg.sender, delegatee, amount);
+    function incrementDelegation(address delegatee, uint256 amount) public virtual {
+        _incrementDelegation(msg.sender, delegatee, amount);
     }
 
     /**
@@ -203,6 +207,7 @@ abstract contract ERC20MultiVotes is ERC20, Auth {
      * @notice Delegate all votes `newDelegatee`. First undelegates from an existing delegate. If `newDelegatee` is zero, only undelegates.
      * @param newDelegatee the receiver of votes.
      * @dev undefined for `delegateCount(msg.sender) > 1`
+     * NOTE This is meant for backward compatibility with the `ERC20Votes` and `ERC20VotesComp` interfaces from OpenZeppelin.
      */
     function delegate(address newDelegatee) external virtual {
         _delegate(msg.sender, newDelegatee);
@@ -214,19 +219,21 @@ abstract contract ERC20MultiVotes is ERC20, Auth {
         // undefined behavior for delegateCount > 1
         if (count > 1) revert DelegationError();
 
+        address oldDelegatee;
         // if already delegated, undelegate first
         if (count == 1) {
-            address oldDelegatee = _delegates[delegator].at(0);
+            oldDelegatee = _delegates[delegator].at(0);
             _undelegate(delegator, oldDelegatee, _delegatesVotesCount[delegator][oldDelegatee]);
         }
 
         // redelegate only if newDelegatee is not empty
         if (newDelegatee != address(0)) {
-            _delegate(delegator, newDelegatee, freeVotes(delegator));
+            _incrementDelegation(delegator, newDelegatee, freeVotes(delegator));
         }
+        emit DelegateChanged(delegator, oldDelegatee, newDelegatee);
     }
 
-    function _delegate(
+    function _incrementDelegation(
         address delegator,
         address delegatee,
         uint256 amount
