@@ -47,10 +47,17 @@ contract ERC20GaugesTest is DSTestPlus {
     function testAddGauge(address[8] memory gauges) public {
         token.setMaxGauges(8);
 
+        uint256 uniqueGauges;
         for (uint256 i = 0; i < 8; i++) {
-            token.addGauge(gauges[i]);
-            require(token.numGauges() == i + 1);
-            require(token.gauges()[i] == gauges[i]);
+            if (token.isGauge(gauges[i]) || gauges[i] == address(0)) {
+                hevm.expectRevert(abi.encodeWithSignature("InvalidGaugeError()"));
+                token.addGauge(gauges[i]);
+            } else {
+                token.addGauge(gauges[i]);
+                require(token.numGauges() == uniqueGauges + 1);
+                require(token.gauges()[uniqueGauges] == gauges[i]);
+                uniqueGauges++;
+            }
         }
     }
 
@@ -89,7 +96,8 @@ contract ERC20GaugesTest is DSTestPlus {
         token.setMaxGauges(2);
         token.addGauge(gauge1);
         token.removeGauge(gauge1);
-        require(token.numGauges() == 0);
+        require(token.numGauges() == 1);
+        require(token.numDeprecatedGauges() == 1);
         require(token.deprecatedGauges()[0] == gauge1);
     }
 
@@ -117,7 +125,8 @@ contract ERC20GaugesTest is DSTestPlus {
         token.incrementGauge(gauge1, amount);
 
         token.removeGauge(gauge1);
-        require(token.numGauges() == 0);
+        require(token.numGauges() == 1);
+        require(token.numDeprecatedGauges() == 1);
         require(token.totalWeight() == 0);
         require(token.getGaugeWeight(gauge1) == amount);
         require(token.getUserGaugeWeight(address(this), gauge1) == amount);
@@ -127,8 +136,10 @@ contract ERC20GaugesTest is DSTestPlus {
         token.setMaxGauges(2);
         token.addGauge(gauge1);
         token.replaceGauge(gauge1, gauge2);
-        require(token.numGauges() == 1);
-        require(token.gauges()[0] == gauge2);
+        require(token.numGauges() == 2);
+        require(token.numDeprecatedGauges() == 1);
+        require(token.gauges()[0] == gauge1);
+        require(token.gauges()[1] == gauge2);
         require(token.deprecatedGauges()[0] == gauge1);
     }
 
@@ -178,7 +189,7 @@ contract ERC20GaugesTest is DSTestPlus {
         unchecked {
             uint112 sum;
             for (uint256 i = 0; i < 8; i++) {
-                hevm.assume(sum + amounts[i] >= sum);
+                hevm.assume(sum + amounts[i] >= sum && !token.isGauge(gauges[i]) && gauges[i] != address(0));
                 sum += amounts[i];
 
                 token.mint(from[i], amounts[i]);
@@ -255,7 +266,7 @@ contract ERC20GaugesTest is DSTestPlus {
         unchecked {
             uint112 sum;
             for (uint256 i = 0; i < 8; i++) {
-                hevm.assume(sum + amounts[i] >= sum);
+                hevm.assume(sum + amounts[i] >= sum && !token.isGauge(gauges[i]) && gauges[i] != address(0));
                 sum += amounts[i];
 
                 token.mint(address(this), amounts[i]);

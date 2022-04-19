@@ -164,11 +164,15 @@ contract ERC20MultiVotesTest is DSTestPlus {
         token.delegate(oldDelegatee, beforeDelegateAmount);
 
         token.delegate(newDelegatee);
+
+        uint256 expected = newDelegatee == address(0) ? 0 : mintAmount;
+        uint256 expectedFree = newDelegatee == address(0) ? mintAmount : 0;
+
         require(oldDelegatee == newDelegatee || token.delegatesVotesCount(address(this), oldDelegatee) == 0);
-        require(token.delegatesVotesCount(address(this), newDelegatee) == mintAmount);
-        require(token.userDelegatedVotes(address(this)) == mintAmount);
-        require(token.getVotes(newDelegatee) == mintAmount);
-        require(token.freeVotes(address(this)) == 0);
+        require(token.delegatesVotesCount(address(this), newDelegatee) == expected);
+        require(token.userDelegatedVotes(address(this)) == expected);
+        require(token.getVotes(newDelegatee) == expected);
+        require(token.freeVotes(address(this)) == expectedFree);
     }
 
     function testBackwardCompatibleDelegateBySig(
@@ -203,12 +207,15 @@ contract ERC20MultiVotesTest is DSTestPlus {
             )
         );
 
+        uint256 expected = newDelegatee == address(0) ? 0 : mintAmount;
+        uint256 expectedFree = newDelegatee == address(0) ? mintAmount : 0;
+
         token.delegateBySig(newDelegatee, 0, block.timestamp, v, r, s);
         require(oldDelegatee == newDelegatee || token.delegatesVotesCount(owner, oldDelegatee) == 0);
-        require(token.delegatesVotesCount(owner, newDelegatee) == mintAmount);
-        require(token.userDelegatedVotes(owner) == mintAmount);
-        require(token.getVotes(newDelegatee) == mintAmount);
-        require(token.freeVotes(owner) == 0);
+        require(token.delegatesVotesCount(owner, newDelegatee) == expected);
+        require(token.userDelegatedVotes(owner) == expected);
+        require(token.getVotes(newDelegatee) == expected);
+        require(token.freeVotes(owner) == expectedFree);
     }
 
     /*///////////////////////////////////////////////////////////////

@@ -256,7 +256,7 @@ abstract contract ERC20MultiVotes is ERC20, Auth {
         uint256 newDelegates = _delegatesVotesCount[delegator][delegatee] - amount;
 
         if (newDelegates == 0) {
-            assert(_delegates[delegator].remove(delegatee)); // Should never fail.
+            require(_delegates[delegator].remove(delegatee));
         }
 
         _delegatesVotesCount[delegator][delegatee] = newDelegates;
@@ -342,7 +342,7 @@ abstract contract ERC20MultiVotes is ERC20, Auth {
             if (delegateVotes != 0) {
                 totalFreed += delegateVotes;
 
-                assert(_delegates[user].remove(delegatee)); // Remove from set. Should never fail.
+                require(_delegates[user].remove(delegatee)); // Remove from set. Should never fail.
 
                 _delegatesVotesCount[user][delegatee] = 0;
 
@@ -383,6 +383,7 @@ abstract contract ERC20MultiVotes is ERC20, Auth {
             s
         );
         require(nonce == nonces[signer]++, "ERC20MultiVotes: invalid nonce");
+        require(signer != address(0));
         _delegate(signer, delegatee);
     }
 }
