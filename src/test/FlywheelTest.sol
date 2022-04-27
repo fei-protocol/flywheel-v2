@@ -30,8 +30,8 @@ contract FlywheelTest is DSTestPlus {
 
         flywheel = new FlywheelCore(
             rewardToken,
-            rewards,
-            IFlywheelBooster(address(booster)),
+            MockRewards(address(0)),
+            IFlywheelBooster(address(0)),
             address(this),
             Authority(address(0))
         );
