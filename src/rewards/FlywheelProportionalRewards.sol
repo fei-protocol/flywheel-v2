@@ -65,6 +65,6 @@ contract FlywheelProportionalRewards is Auth, BaseFlywheelRewards {
             elapsed = rewards.rewardsEndTimestamp - lastUpdatedTimestamp;
         }
 
-        amount = rewards.rewardBasisPointsPerYear * ((vault.totalAssets() * elapsed) / 365.25 days);
+        amount = (rewards.rewardBasisPointsPerYear * ((vault.totalAssets() * elapsed) / 365.25 days)) / 10_000;
     }
 }

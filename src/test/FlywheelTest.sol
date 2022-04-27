@@ -26,15 +26,15 @@ contract FlywheelTest is DSTestPlus {
 
         booster = new MockBooster();
 
+        rewards = new MockRewards(flywheel);
+
         flywheel = new FlywheelCore(
             rewardToken,
-            MockRewards(address(0)),
-            IFlywheelBooster(address(0)),
+            rewards,
+            IFlywheelBooster(address(booster)),
             address(this),
             Authority(address(0))
         );
-
-        rewards = new MockRewards(flywheel);
 
         flywheel.setFlywheelRewards(rewards);
     }
