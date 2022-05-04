@@ -36,7 +36,7 @@ contract FlywheelTest is DSTestPlus {
 
         rewards = new MockRewards(flywheel);
 
-        flywheel.setFlywheelRewards(rewards);
+        flywheel.setFlywheelRewards(rewards, 0);
     }
 
     function testAddStrategy(ERC20 strat) public {
@@ -54,8 +54,8 @@ contract FlywheelTest is DSTestPlus {
     function testSetFlywheelRewards(uint256 mintAmount) public {
         rewardToken.mint(address(rewards), mintAmount);
 
-        flywheel.setFlywheelRewards(IFlywheelRewards(address(1)));
-        require(flywheel.flywheelRewards() == IFlywheelRewards(address(1)));
+        flywheel.setFlywheelRewards(IFlywheelRewards(address(1)), 0);
+        require(flywheel.flywheelRewards(0) == IFlywheelRewards(address(1)));
 
         // assert rewards transferred
         require(rewardToken.balanceOf(address(1)) == mintAmount);
@@ -65,18 +65,18 @@ contract FlywheelTest is DSTestPlus {
     function testSetFlywheelRewardsUnauthorized() public {
         hevm.prank(address(1));
         hevm.expectRevert(bytes("UNAUTHORIZED"));
-        flywheel.setFlywheelRewards(IFlywheelRewards(address(1)));
+        flywheel.setFlywheelRewards(IFlywheelRewards(address(1)), 0);
     }
 
-    function testSetFlywheelBooster(IFlywheelBooster booster) public {
-        flywheel.setBooster(booster);
-        require(flywheel.flywheelBooster() == booster);
+    function testSetFlywheelBooster(IFlywheelBooster _booster) public {
+        flywheel.setBooster(_booster, 0);
+        require(flywheel.flywheelBooster(0) == _booster);
     }
 
     function testSetFlywheelBoosterUnauthorized() public {
         hevm.prank(address(1));
         hevm.expectRevert(bytes("UNAUTHORIZED"));
-        flywheel.setBooster(IFlywheelBooster(address(1)));
+        flywheel.setBooster(IFlywheelBooster(address(1)), 0);
     }
 
     function testAccrue(
@@ -93,7 +93,7 @@ contract FlywheelTest is DSTestPlus {
 
         flywheel.addStrategyForRewards(strategy);
 
-        uint256 accrued = flywheel.accrue(strategy, user);
+        uint256 accrued = flywheel.accrue(strategy, user, 0);
 
         (uint224 index, ) = flywheel.strategyState(strategy);
 
@@ -101,9 +101,9 @@ contract FlywheelTest is DSTestPlus {
 
         require(index == flywheel.ONE() + diff);
         require(flywheel.userIndex(strategy, user) == index);
-        require(flywheel.rewardsAccrued(user) == (diff * userBalance1) / flywheel.ONE());
+        require(flywheel.rewardsAccrued(user, 0) == (diff * userBalance1) / flywheel.ONE());
         require(accrued == (diff * userBalance1) / flywheel.ONE());
-        require(flywheel.rewardsAccrued(user2) == 0 ether);
+        require(flywheel.rewardsAccrued(user2, 0) == 0 ether);
 
         require(rewardToken.balanceOf(address(rewards)) == rewardAmount);
     }
@@ -123,7 +123,7 @@ contract FlywheelTest is DSTestPlus {
 
         flywheel.addStrategyForRewards(strategy);
 
-        (uint256 accrued1, uint256 accrued2) = flywheel.accrue(strategy, user, user2);
+        (uint256 accrued1, uint256 accrued2) = flywheel.accrue(strategy, user, user2, 0);
 
         (uint224 index, ) = flywheel.strategyState(strategy);
 
@@ -132,8 +132,8 @@ contract FlywheelTest is DSTestPlus {
         require(index == flywheel.ONE() + diff);
         require(flywheel.userIndex(strategy, user) == index);
         require(flywheel.userIndex(strategy, user2) == index);
-        require(flywheel.rewardsAccrued(user) == (diff * userBalance1) / flywheel.ONE());
-        require(flywheel.rewardsAccrued(user2) == (diff * userBalance2) / flywheel.ONE());
+        require(flywheel.rewardsAccrued(user, 0) == (diff * userBalance1) / flywheel.ONE());
+        require(flywheel.rewardsAccrued(user2, 0) == (diff * userBalance2) / flywheel.ONE());
         require(accrued1 == (diff * userBalance1) / flywheel.ONE());
         require(accrued2 == (diff * userBalance2) / flywheel.ONE());
 
@@ -146,7 +146,7 @@ contract FlywheelTest is DSTestPlus {
         rewardToken.mint(address(rewards), rewardAmount);
         rewards.setRewardsAmount(strategy, rewardAmount);
 
-        require(flywheel.accrue(strategy, user) == 0);
+        require(flywheel.accrue(strategy, user, 0) == 0);
     }
 
     function testAccrueTwoUsersBeforeAddStrategy() public {
@@ -156,7 +156,7 @@ contract FlywheelTest is DSTestPlus {
         rewardToken.mint(address(rewards), 10 ether);
         rewards.setRewardsAmount(strategy, 10 ether);
 
-        (uint256 accrued1, uint256 accrued2) = flywheel.accrue(strategy, user, user2);
+        (uint256 accrued1, uint256 accrued2) = flywheel.accrue(strategy, user, user2, 0);
 
         require(accrued1 == 0);
         require(accrued2 == 0);
@@ -171,18 +171,18 @@ contract FlywheelTest is DSTestPlus {
 
         flywheel.addStrategyForRewards(strategy);
 
-        uint256 accrued = flywheel.accrue(strategy, user);
+        uint256 accrued = flywheel.accrue(strategy, user, 0);
 
         rewards.setRewardsAmount(strategy, 0);
 
-        uint256 accrued2 = flywheel.accrue(strategy, user2);
+        uint256 accrued2 = flywheel.accrue(strategy, user2, 0);
 
         (uint224 index, ) = flywheel.strategyState(strategy);
 
         require(index == flywheel.ONE() + 2.5 ether);
         require(flywheel.userIndex(strategy, user) == index);
-        require(flywheel.rewardsAccrued(user) == 2.5 ether);
-        require(flywheel.rewardsAccrued(user2) == 7.5 ether);
+        require(flywheel.rewardsAccrued(user, 0) == 2.5 ether);
+        require(flywheel.rewardsAccrued(user2, 0) == 7.5 ether);
         require(accrued == 2.5 ether);
         require(accrued2 == 7.5 ether);
 
@@ -197,14 +197,14 @@ contract FlywheelTest is DSTestPlus {
 
         flywheel.addStrategyForRewards(strategy);
 
-        (uint256 accrued, uint256 accrued2) = flywheel.accrue(strategy, user, user2);
+        (uint256 accrued, uint256 accrued2) = flywheel.accrue(strategy, user, user2, 0);
 
         (uint224 index, ) = flywheel.strategyState(strategy);
 
         require(index == flywheel.ONE() + 10 ether);
         require(flywheel.userIndex(strategy, user) == index);
-        require(flywheel.rewardsAccrued(user) == 10 ether);
-        require(flywheel.rewardsAccrued(user2) == 0);
+        require(flywheel.rewardsAccrued(user, 0) == 10 ether);
+        require(flywheel.rewardsAccrued(user2, 0) == 0);
         require(accrued == 10 ether);
         require(accrued2 == 0);
 
@@ -215,14 +215,14 @@ contract FlywheelTest is DSTestPlus {
         rewardToken.mint(address(rewards), 4 ether);
         rewards.setRewardsAmount(strategy, 4 ether);
 
-        (accrued, accrued2) = flywheel.accrue(strategy, user, user2);
+        (accrued, accrued2) = flywheel.accrue(strategy, user, user2, 0);
 
         (index, ) = flywheel.strategyState(strategy);
 
         require(index == flywheel.ONE() + 11 ether);
         require(flywheel.userIndex(strategy, user) == index);
-        require(flywheel.rewardsAccrued(user) == 11 ether);
-        require(flywheel.rewardsAccrued(user2) == 3 ether);
+        require(flywheel.rewardsAccrued(user, 0) == 11 ether);
+        require(flywheel.rewardsAccrued(user2, 0) == 3 ether);
         require(accrued == 11 ether);
         require(accrued2 == 3 ether);
 
@@ -237,14 +237,14 @@ contract FlywheelTest is DSTestPlus {
         hevm.assume(userBalance1 != 0 && userBalance2 != 0 && rewardAmount != 0);
 
         testAccrue(userBalance1, userBalance2, rewardAmount);
-        flywheel.claimRewards(user);
+        flywheel.claimRewards(user, 0);
 
         uint256 diff = (rewardAmount * flywheel.ONE()) / (uint256(userBalance1) + userBalance2);
         uint256 accrued = (diff * userBalance1) / flywheel.ONE();
 
         require(rewardToken.balanceOf(address(rewards)) == rewardAmount - accrued);
         require(rewardToken.balanceOf(user) == accrued);
-        require(flywheel.rewardsAccrued(user) == 0);
+        require(flywheel.rewardsAccrued(user, 0) == 0);
 
         flywheel.claimRewards(user);
     }
@@ -259,7 +259,7 @@ contract FlywheelTest is DSTestPlus {
 
         booster.setBoost(user, boost);
 
-        flywheel.setBooster(IFlywheelBooster(address(booster)));
+        flywheel.setBooster(IFlywheelBooster(address(booster)), 0);
 
         strategy.mint(user, userBalance1);
         strategy.mint(user2, userBalance2);
@@ -269,7 +269,7 @@ contract FlywheelTest is DSTestPlus {
 
         flywheel.addStrategyForRewards(strategy);
 
-        uint256 accrued = flywheel.accrue(strategy, user);
+        uint256 accrued = flywheel.accrue(strategy, user, 0);
 
         (uint224 index, ) = flywheel.strategyState(strategy);
 
@@ -278,10 +278,10 @@ contract FlywheelTest is DSTestPlus {
 
         require(index == flywheel.ONE() + diff);
         require(flywheel.userIndex(strategy, user) == index);
-        require(flywheel.rewardsAccrued(user) == (diff * user1Boosted) / flywheel.ONE());
+        require(flywheel.rewardsAccrued(user, 0) == (diff * user1Boosted) / flywheel.ONE());
         require(accrued == (diff * user1Boosted) / flywheel.ONE());
 
-        require(flywheel.rewardsAccrued(user2) == 0 ether);
+        require(flywheel.rewardsAccrued(user2, 0) == 0 ether);
 
         require(rewardToken.balanceOf(address(rewards)) == rewardAmount);
     }
