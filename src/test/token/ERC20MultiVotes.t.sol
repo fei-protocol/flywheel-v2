@@ -228,6 +228,7 @@ contract ERC20MultiVotesTest is DSTestPlus {
 
         token.incrementDelegation(delegate1, 4e18);
 
+        hevm.roll(1);
         uint256 block1 = block.number;
         require(token.numCheckpoints(delegate1) == 1);
         ERC20MultiVotes.Checkpoint memory checkpoint1 = token.checkpoints(delegate1, 0);
@@ -242,7 +243,7 @@ contract ERC20MultiVotesTest is DSTestPlus {
         require(checkpoint1.fromBlock == block1);
         require(checkpoint1.votes == 8e18);
 
-        hevm.roll(1);
+        hevm.roll(2);
         uint256 block2 = block.number;
         require(block2 == block1 + 1);
 
@@ -263,7 +264,7 @@ contract ERC20MultiVotesTest is DSTestPlus {
 
         hevm.roll(10);
         uint256 block3 = block.number;
-        require(block3 == block2 + 9);
+        require(block3 == block2 + 8);
 
         // 10 blocks later increase voting power
         token.incrementDelegation(delegate1, 4e18);
