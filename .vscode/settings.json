@@ -2,7 +2,9 @@
   "solidity.packageDefaultDependenciesContractsDirectory": "src",
   "solidity.packageDefaultDependenciesDirectory": "lib",
   "solidity.compileUsingRemoteVersion": "v0.8.10",
-  "search.exclude": { "lib": true },
+  "search.exclude": {
+    "lib": true
+  },
   "files.associations": {
     ".dapprc": "shellscript",
     ".gas-snapshot": "julia"
@@ -10,6 +12,10 @@
   "editor.formatOnSave": true,
   "solidity.formatter": "prettier",
   "[solidity]": {
-      "editor.defaultFormatter": "JuanBlanco.solidity"
-  }
+    "editor.defaultFormatter": "JuanBlanco.solidity"
+  },
+  "solidity.remappings": [
+    "solmate/=lib/solmate/src/",
+    "forge-std/=lib/forge-std/src/"
+  ],
 }

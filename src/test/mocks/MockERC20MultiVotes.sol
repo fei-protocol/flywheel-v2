@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 pragma solidity >=0.8.0;
 
-import {ERC20MultiVotes, ERC20, Auth, Authority} from "../../token/ERC20MultiVotes.sol";
+import {Auth, Authority} from "solmate/auth/Auth.sol";
+import {ERC20MultiVotes, ERC20} from "../../token/ERC20MultiVotes.sol";
 
 contract MockERC20MultiVotes is ERC20MultiVotes {
     constructor(address _owner) ERC20("Token", "TKN", 18) Auth(_owner, Authority(address(0))) {}

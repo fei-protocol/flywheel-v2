@@ -19,7 +19,7 @@ contract ERC20MultiVotesTest is DSTestPlus {
 
     function testSetMaxDelegates(uint256 max) public {
         token.setMaxDelegates(max);
-        require(token.maxDelegates() == max);
+        assertTrue(token.maxDelegates() == max);
     }
 
     function testSetMaxDelegatesNonOwnerFails() public {
@@ -30,7 +30,7 @@ contract ERC20MultiVotesTest is DSTestPlus {
 
     function testCanContractExceedMax() public {
         token.setContractExceedMaxDelegates(address(this), true);
-        require(token.canContractExceedMaxDelegates(address(this)));
+        assertTrue(token.canContractExceedMaxDelegates(address(this)));
     }
 
     function testCanContractExceedMaxNonOwnerFails() public {
@@ -70,9 +70,9 @@ contract ERC20MultiVotesTest is DSTestPlus {
 
                 hevm.prank(from[i]);
                 token.incrementDelegation(delegates[i], amounts[i]);
-                require(token.delegatesVotesCount(from[i], delegates[i]) == delegateVotesBefore + amounts[i]);
-                require(token.userDelegatedVotes(from[i]) == userDelegatedBefore + amounts[i]);
-                require(token.getVotes(delegates[i]) == votesBefore + amounts[i]);
+                assertTrue(token.delegatesVotesCount(from[i], delegates[i]) == delegateVotesBefore + amounts[i]);
+                assertTrue(token.userDelegatedVotes(from[i]) == userDelegatedBefore + amounts[i]);
+                assertTrue(token.getVotes(delegates[i]) == votesBefore + amounts[i]);
             }
         }
     }
@@ -113,9 +113,9 @@ contract ERC20MultiVotesTest is DSTestPlus {
         token.incrementDelegation(delegate2, 1e18);
         token.incrementDelegation(address(this), 1e18);
 
-        require(token.delegateCount(address(this)) == 3);
-        require(token.delegateCount(address(this)) > token.maxDelegates());
-        require(token.userDelegatedVotes(address(this)) == 52e18);
+        assertTrue(token.delegateCount(address(this)) == 3);
+        assertTrue(token.delegateCount(address(this)) > token.maxDelegates());
+        assertTrue(token.userDelegatedVotes(address(this)) == 52e18);
     }
 
     /// @notice test undelegate twice, 2 tokens each after delegating by 4.
@@ -126,16 +126,16 @@ contract ERC20MultiVotesTest is DSTestPlus {
         token.incrementDelegation(delegate1, 4e18);
 
         token.undelegate(delegate1, 2e18);
-        require(token.delegatesVotesCount(address(this), delegate1) == 2e18);
-        require(token.userDelegatedVotes(address(this)) == 2e18);
-        require(token.getVotes(delegate1) == 2e18);
-        require(token.freeVotes(address(this)) == 98e18);
+        assertTrue(token.delegatesVotesCount(address(this), delegate1) == 2e18);
+        assertTrue(token.userDelegatedVotes(address(this)) == 2e18);
+        assertTrue(token.getVotes(delegate1) == 2e18);
+        assertTrue(token.freeVotes(address(this)) == 98e18);
 
         token.undelegate(delegate1, 2e18);
-        require(token.delegatesVotesCount(address(this), delegate1) == 0);
-        require(token.userDelegatedVotes(address(this)) == 0);
-        require(token.getVotes(delegate1) == 0);
-        require(token.freeVotes(address(this)) == 100e18);
+        assertTrue(token.delegatesVotesCount(address(this), delegate1) == 0);
+        assertTrue(token.userDelegatedVotes(address(this)) == 0);
+        assertTrue(token.getVotes(delegate1) == 0);
+        assertTrue(token.freeVotes(address(this)) == 100e18);
     }
 
     function testDecrementOverWeightFails() public {
@@ -168,11 +168,11 @@ contract ERC20MultiVotesTest is DSTestPlus {
         uint256 expected = newDelegatee == address(0) ? 0 : mintAmount;
         uint256 expectedFree = newDelegatee == address(0) ? mintAmount : 0;
 
-        require(oldDelegatee == newDelegatee || token.delegatesVotesCount(address(this), oldDelegatee) == 0);
-        require(token.delegatesVotesCount(address(this), newDelegatee) == expected);
-        require(token.userDelegatedVotes(address(this)) == expected);
-        require(token.getVotes(newDelegatee) == expected);
-        require(token.freeVotes(address(this)) == expectedFree);
+        assertTrue(oldDelegatee == newDelegatee || token.delegatesVotesCount(address(this), oldDelegatee) == 0);
+        assertTrue(token.delegatesVotesCount(address(this), newDelegatee) == expected);
+        assertTrue(token.userDelegatedVotes(address(this)) == expected);
+        assertTrue(token.getVotes(newDelegatee) == expected);
+        assertTrue(token.freeVotes(address(this)) == expectedFree);
     }
 
     function testBackwardCompatibleDelegateBySig(
@@ -211,11 +211,11 @@ contract ERC20MultiVotesTest is DSTestPlus {
         uint256 expectedFree = newDelegatee == address(0) ? mintAmount : 0;
 
         token.delegateBySig(newDelegatee, 0, block.timestamp, v, r, s);
-        require(oldDelegatee == newDelegatee || token.delegatesVotesCount(owner, oldDelegatee) == 0);
-        require(token.delegatesVotesCount(owner, newDelegatee) == expected);
-        require(token.userDelegatedVotes(owner) == expected);
-        require(token.getVotes(newDelegatee) == expected);
-        require(token.freeVotes(owner) == expectedFree);
+        assertTrue(oldDelegatee == newDelegatee || token.delegatesVotesCount(owner, oldDelegatee) == 0);
+        assertTrue(token.delegatesVotesCount(owner, newDelegatee) == expected);
+        assertTrue(token.userDelegatedVotes(owner) == expected);
+        assertTrue(token.getVotes(newDelegatee) == expected);
+        assertTrue(token.freeVotes(owner) == expectedFree);
     }
 
     /*///////////////////////////////////////////////////////////////
@@ -228,74 +228,75 @@ contract ERC20MultiVotesTest is DSTestPlus {
 
         token.incrementDelegation(delegate1, 4e18);
 
+        hevm.roll(1);
         uint256 block1 = block.number;
-        require(token.numCheckpoints(delegate1) == 1);
+        assertTrue(token.numCheckpoints(delegate1) == 1);
         ERC20MultiVotes.Checkpoint memory checkpoint1 = token.checkpoints(delegate1, 0);
-        require(checkpoint1.fromBlock == block1);
-        require(checkpoint1.votes == 4e18);
+        assertTrue(checkpoint1.fromBlock == block1);
+        assertTrue(checkpoint1.votes == 4e18);
 
         // Same block increase voting power
         token.incrementDelegation(delegate1, 4e18);
 
-        require(token.numCheckpoints(delegate1) == 1);
+        assertTrue(token.numCheckpoints(delegate1) == 1);
         checkpoint1 = token.checkpoints(delegate1, 0);
-        require(checkpoint1.fromBlock == block1);
-        require(checkpoint1.votes == 8e18);
+        assertTrue(checkpoint1.fromBlock == block1);
+        assertTrue(checkpoint1.votes == 8e18);
 
-        hevm.roll(1);
+        hevm.roll(2);
         uint256 block2 = block.number;
-        require(block2 == block1 + 1);
+        assertEq(block2, block1 + 1);
 
         // Next block decrease voting power
         token.undelegate(delegate1, 2e18);
 
-        require(token.numCheckpoints(delegate1) == 2); // new checkpint
+        assertTrue(token.numCheckpoints(delegate1) == 2); // new checkpint
 
         // checkpoint 1 stays same
         checkpoint1 = token.checkpoints(delegate1, 0);
-        require(checkpoint1.fromBlock == block1);
-        require(checkpoint1.votes == 8e18);
+        assertTrue(checkpoint1.fromBlock == block1);
+        assertTrue(checkpoint1.votes == 8e18);
 
         // new checkpoint 2
         ERC20MultiVotes.Checkpoint memory checkpoint2 = token.checkpoints(delegate1, 1);
-        require(checkpoint2.fromBlock == block2);
-        require(checkpoint2.votes == 6e18);
+        assertTrue(checkpoint2.fromBlock == block2);
+        assertTrue(checkpoint2.votes == 6e18);
 
         hevm.roll(10);
         uint256 block3 = block.number;
-        require(block3 == block2 + 9);
+        assertTrue(block3 == block2 + 8);
 
         // 10 blocks later increase voting power
         token.incrementDelegation(delegate1, 4e18);
 
-        require(token.numCheckpoints(delegate1) == 3); // new checkpint
+        assertTrue(token.numCheckpoints(delegate1) == 3); // new checkpint
 
         // checkpoint 1 stays same
         checkpoint1 = token.checkpoints(delegate1, 0);
-        require(checkpoint1.fromBlock == block1);
-        require(checkpoint1.votes == 8e18);
+        assertTrue(checkpoint1.fromBlock == block1);
+        assertTrue(checkpoint1.votes == 8e18);
 
         // checkpoint 2 stays same
         checkpoint2 = token.checkpoints(delegate1, 1);
-        require(checkpoint2.fromBlock == block2);
-        require(checkpoint2.votes == 6e18);
+        assertTrue(checkpoint2.fromBlock == block2);
+        assertTrue(checkpoint2.votes == 6e18);
 
         // new checkpoint 3
         ERC20MultiVotes.Checkpoint memory checkpoint3 = token.checkpoints(delegate1, 2);
-        require(checkpoint3.fromBlock == block3);
-        require(checkpoint3.votes == 10e18);
+        assertTrue(checkpoint3.fromBlock == block3);
+        assertTrue(checkpoint3.votes == 10e18);
 
         // finally, test getPastVotes between checkpoints
-        require(token.getPastVotes(delegate1, block1) == 8e18);
-        require(token.getPastVotes(delegate1, block2) == 6e18);
-        require(token.getPastVotes(delegate1, block2 + 4) == 6e18);
-        require(token.getPastVotes(delegate1, block3 - 1) == 6e18);
+        assertTrue(token.getPastVotes(delegate1, block1) == 8e18);
+        assertTrue(token.getPastVotes(delegate1, block2) == 6e18);
+        assertTrue(token.getPastVotes(delegate1, block2 + 4) == 6e18);
+        assertTrue(token.getPastVotes(delegate1, block3 - 1) == 6e18);
 
         hevm.expectRevert(abi.encodeWithSignature("BlockError()"));
         token.getPastVotes(delegate1, block3); // revert same block
 
         hevm.roll(11);
-        require(token.getPastVotes(delegate1, block3) == 10e18);
+        assertTrue(token.getPastVotes(delegate1, block3) == 10e18);
     }
 
     /*///////////////////////////////////////////////////////////////
@@ -308,16 +309,16 @@ contract ERC20MultiVotesTest is DSTestPlus {
 
         token.incrementDelegation(delegate1, 10e18);
         token.incrementDelegation(delegate2, 20e18);
-        require(token.freeVotes(address(this)) == 70e18);
+        assertTrue(token.freeVotes(address(this)) == 70e18);
 
         token.burn(address(this), 50e18);
-        require(token.freeVotes(address(this)) == 20e18);
+        assertTrue(token.freeVotes(address(this)) == 20e18);
 
-        require(token.delegatesVotesCount(address(this), delegate1) == 10e18);
-        require(token.userDelegatedVotes(address(this)) == 30e18);
-        require(token.getVotes(delegate1) == 10e18);
-        require(token.delegatesVotesCount(address(this), delegate2) == 20e18);
-        require(token.getVotes(delegate2) == 20e18);
+        assertTrue(token.delegatesVotesCount(address(this), delegate1) == 10e18);
+        assertTrue(token.userDelegatedVotes(address(this)) == 30e18);
+        assertTrue(token.getVotes(delegate1) == 10e18);
+        assertTrue(token.delegatesVotesCount(address(this), delegate2) == 20e18);
+        assertTrue(token.getVotes(delegate2) == 20e18);
     }
 
     function testDecrementUntilFreeSingle() public {
@@ -326,16 +327,16 @@ contract ERC20MultiVotesTest is DSTestPlus {
 
         token.incrementDelegation(delegate1, 10e18);
         token.incrementDelegation(delegate2, 20e18);
-        require(token.freeVotes(address(this)) == 70e18);
+        assertTrue(token.freeVotes(address(this)) == 70e18);
 
         token.transfer(address(1), 80e18);
-        require(token.freeVotes(address(this)) == 0);
+        assertTrue(token.freeVotes(address(this)) == 0);
 
-        require(token.delegatesVotesCount(address(this), delegate1) == 0);
-        require(token.userDelegatedVotes(address(this)) == 20e18);
-        require(token.getVotes(delegate1) == 0);
-        require(token.delegatesVotesCount(address(this), delegate2) == 20e18);
-        require(token.getVotes(delegate2) == 20e18);
+        assertTrue(token.delegatesVotesCount(address(this), delegate1) == 0);
+        assertTrue(token.userDelegatedVotes(address(this)) == 20e18);
+        assertTrue(token.getVotes(delegate1) == 0);
+        assertTrue(token.delegatesVotesCount(address(this), delegate2) == 20e18);
+        assertTrue(token.getVotes(delegate2) == 20e18);
     }
 
     function testDecrementUntilFreeDouble() public {
@@ -344,18 +345,18 @@ contract ERC20MultiVotesTest is DSTestPlus {
 
         token.incrementDelegation(delegate1, 10e18);
         token.incrementDelegation(delegate2, 20e18);
-        require(token.freeVotes(address(this)) == 70e18);
+        assertTrue(token.freeVotes(address(this)) == 70e18);
 
         token.approve(address(1), 100e18);
         hevm.prank(address(1));
         token.transferFrom(address(this), address(1), 90e18);
 
-        require(token.freeVotes(address(this)) == 10e18);
+        assertTrue(token.freeVotes(address(this)) == 10e18);
 
-        require(token.delegatesVotesCount(address(this), delegate1) == 0);
-        require(token.userDelegatedVotes(address(this)) == 0);
-        require(token.getVotes(delegate1) == 0);
-        require(token.delegatesVotesCount(address(this), delegate2) == 0);
-        require(token.getVotes(delegate2) == 0);
+        assertTrue(token.delegatesVotesCount(address(this), delegate1) == 0);
+        assertTrue(token.userDelegatedVotes(address(this)) == 0);
+        assertTrue(token.getVotes(delegate1) == 0);
+        assertTrue(token.delegatesVotesCount(address(this), delegate2) == 0);
+        assertTrue(token.getVotes(delegate2) == 0);
     }
 }
