@@ -245,7 +245,7 @@ contract ERC20MultiVotesTest is DSTestPlus {
 
         hevm.roll(2);
         uint256 block2 = block.number;
-        assertEq(block2, block1 + 1);
+        require(block2 == block1 + 1);
 
         // Next block decrease voting power
         token.undelegate(delegate1, 2e18);
