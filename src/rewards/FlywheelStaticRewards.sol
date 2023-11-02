@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-pragma solidity 0.8.10;
+pragma solidity ^0.8.10;
 
 import {Auth, Authority} from "solmate/auth/Auth.sol";
 import "./BaseFlywheelRewards.sol";
 
-/** 
+/**
  @title Flywheel Static Reward Stream
  @notice Determines rewards per strategy based on a fixed reward rate per second
 */
