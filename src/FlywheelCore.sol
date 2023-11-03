@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-pragma solidity 0.8.10;
+pragma solidity ^0.8.10;
 
 import {ERC20} from "solmate/tokens/ERC20.sol";
 import {Auth, Authority} from "solmate/auth/Auth.sol";
@@ -21,7 +21,7 @@ import {IFlywheelBooster} from "./interfaces/IFlywheelBooster.sol";
 
          Core does not manage any tokens directly. The rewards module maintains token balances, and approves core to pull transfer them to users when they claim.
 
-         SECURITY NOTE: For maximum accuracy and to avoid exploits, rewards accrual should be notified atomically through the accrue hook. 
+         SECURITY NOTE: For maximum accuracy and to avoid exploits, rewards accrual should be notified atomically through the accrue hook.
          Accrue should be called any time tokens are transferred, minted, or burned.
  */
 contract FlywheelCore is Auth {
@@ -56,7 +56,7 @@ contract FlywheelCore is Auth {
                         ACCRUE/CLAIM LOGIC
     //////////////////////////////////////////////////////////////*/
 
-    /** 
+    /**
       @notice Emitted when a user's rewards accrue to a given strategy.
       @param strategy the updated rewards strategy
       @param user the user of the rewards
@@ -65,7 +65,7 @@ contract FlywheelCore is Auth {
     */
     event AccrueRewards(ERC20 indexed strategy, address indexed user, uint256 rewardsDelta, uint256 rewardsIndex);
 
-    /** 
+    /**
       @notice Emitted when a user claims accrued rewards.
       @param user the user of the rewards
       @param amount the amount of rewards claimed
@@ -75,7 +75,7 @@ contract FlywheelCore is Auth {
     /// @notice The accrued but not yet transferred rewards for each user
     mapping(address => uint256) public rewardsAccrued;
 
-    /** 
+    /**
       @notice accrue rewards for a single user on a strategy
       @param strategy the strategy to accrue a user's rewards on
       @param user the user to be accrued
@@ -90,7 +90,7 @@ contract FlywheelCore is Auth {
         return accrueUser(strategy, user, state);
     }
 
-    /** 
+    /**
       @notice accrue rewards for a two users on a strategy
       @param strategy the strategy to accrue a user's rewards on
       @param user the first user to be accrued
@@ -111,7 +111,7 @@ contract FlywheelCore is Auth {
         return (accrueUser(strategy, user, state), accrueUser(strategy, secondUser, state));
     }
 
-    /** 
+    /**
       @notice claim rewards for a given user
       @param user the user claiming rewards
       @dev this function is public, and all rewards transfer to the user
@@ -132,7 +132,7 @@ contract FlywheelCore is Auth {
                           ADMIN LOGIC
     //////////////////////////////////////////////////////////////*/
 
-    /** 
+    /**
       @notice Emitted when a new strategy is added to flywheel by the admin
       @param newStrategy the new added strategy
     */
@@ -155,7 +155,7 @@ contract FlywheelCore is Auth {
         return allStrategies;
     }
 
-    /** 
+    /**
       @notice Emitted when the rewards module changes
       @param newFlywheelRewards the new rewards module
     */
@@ -173,7 +173,7 @@ contract FlywheelCore is Auth {
         emit FlywheelRewardsUpdate(address(newFlywheelRewards));
     }
 
-    /** 
+    /**
       @notice Emitted when the booster module changes
       @param newBooster the new booster module
     */

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-pragma solidity 0.8.10;
+pragma solidity ^0.8.10;
 
 import {Auth, Authority} from "solmate/auth/Auth.sol";
 import {SafeCastLib} from "solmate/utils/SafeCastLib.sol";
@@ -14,19 +14,19 @@ interface IRewardsStream {
     function getRewards() external returns (uint256);
 }
 
-/** 
+/**
  @title Flywheel Gauge Reward Stream
  @notice Distributes rewards from a stream based on gauge weights
 
  The contract assumes an arbitrary stream of rewards `S` of rewardToken. It chunks the rewards into cycles of length `l`.
 
- The allocation function for each cycle A(g, S) proportions the stream to each gauge such that SUM(A(g, S)) over all gauges <= S. 
+ The allocation function for each cycle A(g, S) proportions the stream to each gauge such that SUM(A(g, S)) over all gauges <= S.
  NOTE it should be approximately S, but may be less due to truncation.
 
  Rewards are accumulated every time a new rewards cycle begins, and all prior rewards are cached in the previous cycle.
  When the Flywheel Core requests accrued rewards for a specific gauge:
  1. All prior rewards before this cycle are distributed
- 2. Rewards for the current cycle are distributed proportionally to the remaining time in the cycle. 
+ 2. Rewards for the current cycle are distributed proportionally to the remaining time in the cycle.
     If `e` is the cycle end, `t` is the min of e and current timestamp, and `p` is the prior updated time:
     For `A` accrued rewards over the cycle, distribute `min(A * (t-p)/(e-p), A)`.
 */

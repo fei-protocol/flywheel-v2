@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-pragma solidity 0.8.10;
+pragma solidity ^0.8.10;
 
 import "./BaseFlywheelRewards.sol";
 import {SafeCastLib} from "solmate/utils/SafeCastLib.sol";
 
-/** 
+/**
  @title Flywheel Dynamic Reward Stream
  @notice Determines rewards based on a dynamic reward stream.
-         Rewards are transferred linearly over a "rewards cycle" to prevent gaming the reward distribution. 
+         Rewards are transferred linearly over a "rewards cycle" to prevent gaming the reward distribution.
          The reward source can be arbitrary logic, but most common is to "pass through" rewards from some other source.
          The getNextCycleRewards() hook should also transfer the next cycle's rewards to this contract to ensure proper accounting.
 */
