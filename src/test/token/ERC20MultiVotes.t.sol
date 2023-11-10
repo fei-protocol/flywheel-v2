@@ -223,6 +223,8 @@ contract ERC20MultiVotesTest is DSTestPlus {
     //////////////////////////////////////////////////////////////*/
 
     function testPastVotes() public {
+        hevm.roll(0);
+
         token.mint(address(this), 100e18);
         token.setMaxDelegates(2);
 
