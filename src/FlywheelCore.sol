@@ -163,9 +163,11 @@ contract FlywheelCore is Auth {
 
     /// @notice swap out the flywheel rewards contract
     function setFlywheelRewards(IFlywheelRewards newFlywheelRewards) external requiresAuth {
-        uint256 oldRewardBalance = rewardToken.balanceOf(address(flywheelRewards));
-        if (address(flywheelRewards) != address(0) && oldRewardBalance > 0) {
-            rewardToken.safeTransferFrom(address(flywheelRewards), address(newFlywheelRewards), oldRewardBalance);
+        if (address(flywheelRewards) != address(0)) {
+            uint256 oldRewardBalance = rewardToken.balanceOf(address(flywheelRewards));
+
+            if (oldRewardBalance != 0)
+                rewardToken.safeTransferFrom(address(flywheelRewards), address(newFlywheelRewards), oldRewardBalance);
         }
 
         flywheelRewards = newFlywheelRewards;
