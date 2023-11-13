@@ -40,6 +40,8 @@ contract FlywheelCore is Auth {
     /// @notice optional booster module for calculating virtual balances on strategies
     IFlywheelBooster public flywheelBooster;
 
+    error InvalidAddress();
+
     constructor(
         ERC20 _rewardToken,
         IFlywheelRewards _flywheelRewards,
@@ -163,6 +165,7 @@ contract FlywheelCore is Auth {
 
     /// @notice swap out the flywheel rewards contract
     function setFlywheelRewards(IFlywheelRewards newFlywheelRewards) external requiresAuth {
+        if (address(newFlywheelRewards) == address(0)) revert InvalidAddress();
         if (address(flywheelRewards) != address(0)) {
             uint256 oldRewardBalance = rewardToken.balanceOf(address(flywheelRewards));
 
